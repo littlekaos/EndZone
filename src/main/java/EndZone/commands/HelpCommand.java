@@ -113,6 +113,7 @@ public class HelpCommand implements Command {
                 "⚙️ System & Admin",
                 "**`/say`** - Send a message with formatting **<@&" + BotConfig.COURT_THE_DISTRICT_ATTORNIES_EZ_ROLE_ID + "> +**\n" +
                 "**`/eventping`** - Send an event ping **<@&" + BotConfig.COURT_THE_DISTRICT_ATTORNIES_EZ_ROLE_ID + "> +**\n" +
+                "**`/signup-ping`** - Ping a role for signup **<@&" + BotConfig.COURT_THE_DISTRICT_ATTORNIES_EZ_ROLE_ID + "> +**\n" +
                 "**`/steal`** - Steal an emoji from another server **<@&" + BotConfig.COURT_THE_DISTRICT_ATTORNIES_EZ_ROLE_ID + "> +**\n" +
                 "**`/reactionrole`** - Setup and manage reaction roles **<@&" + BotConfig.COURT_THE_DISTRICT_ATTORNIES_EZ_ROLE_ID + "> +**\n" +
                 "**`/dbinfo`** - View strike system statistics **<@&" + BotConfig.COURT_THE_DISTRICT_ATTORNIES_EZ_ROLE_ID + "> +**\n" +
@@ -224,6 +225,7 @@ public class HelpCommand implements Command {
                 "**`/bulkremovedemotion`** - Bulk remove from demotion list **<@&" + BotConfig.ALPHA_BETAS_ROLE_ID + "> +**\n" +
                 "**`/say`** - Send a message with formatting **<@&" + BotConfig.ALPHA_BETAS_ROLE_ID + "> +**\n" +
                 "**`/eventping`** - Send an event ping **<@&" + BotConfig.ALPHA_BETAS_ROLE_ID + "> +**\n" +
+                "**`/signup-ping`** - Ping a role for signup **<@&" + BotConfig.ALPHA_BETAS_ROLE_ID + "> +**\n" +
                 "**`/steal`** - Steal an emoji from another server **<@&" + BotConfig.ALPHA_BETAS_ROLE_ID + "> +**\n" +
                 "**`/reactionrole`** - Setup and manage reaction roles **<@&" + BotConfig.ALPHA_BETAS_ROLE_ID + "> +**",
                 false

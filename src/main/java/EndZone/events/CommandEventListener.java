@@ -59,6 +59,7 @@ public class CommandEventListener extends ListenerAdapter {
         registerCommand(new ReactionRoleCommand(bot));
         registerCommand(new BlacklistCommand(bot));
         registerCommand(new AFKCommand(bot));
+        registerCommand(new SignupPingCommand(bot));
     }
 
     private void registerCommand(Command command) {
@@ -101,6 +102,7 @@ public class CommandEventListener extends ListenerAdapter {
             allCommands.addAll(new ReactionRoleCommand(bot).getCommandDataList());
             allCommands.addAll(new BlacklistCommand(bot).getCommandDataList());
             allCommands.addAll(new AFKCommand(bot).getCommandDataList());
+            allCommands.addAll(new SignupPingCommand(bot).getCommandDataList());
             
             // Clear global commands to avoid duplicates
             jda.updateCommands().queue();

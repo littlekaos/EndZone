@@ -44,6 +44,10 @@ public class ButtonEventListener extends ListenerAdapter {
             handleEventPingConfirm(event);
         } else if (buttonId.startsWith("eventping_cancel:")) {
             handleEventPingCancel(event);
+        } else if (buttonId.startsWith("signup_ping_confirm:")) {
+            handleSignupPingConfirm(event);
+        } else if (buttonId.startsWith("signup_ping_cancel:")) {
+            handleSignupPingCancel(event);
         }
     }
 
@@ -96,6 +100,50 @@ public class ButtonEventListener extends ListenerAdapter {
         String uuid = event.getComponentId().split(":")[1];
         SayCommand.getPendingMessage(uuid); // Clear from memory
 
+        event.deferEdit().queue();
+        event.getHook().deleteOriginal().queue();
+    }
+
+    private void handleSignupPingConfirm(ButtonInteractionEvent event) {
+        String[] parts = event.getComponentId().split(":");
+        String roleId = parts[1];
+        String excludeId = parts[2];
+        
+        net.dv8tion.jda.api.entities.Role role = event.getGuild().getRoleById(roleId);
+        if (role == null) {
+            event.reply("❌ Role not found.").setEphemeral(true).queue();
+            return;
+        }
+
+        // Fetch all members with this role
+        event.getGuild().findMembers(m -> m.getRoles().contains(role)).onSuccess(members -> {
+            if (members.isEmpty()) return;
+
+            StringBuilder sb = new StringBuilder();
+            for (net.dv8tion.jda.api.entities.Member member : members) {
+                // Skip excluded user
+                if (member.getId().equals(excludeId)) continue;
+
+                String mention = member.getAsMention() + " ";
+                if (sb.length() + mention.length() + 60 > 2000) { 
+                    String pingContent = sb.toString() + "Signup for the event, or you're going to get striked!";
+                    event.getChannel().sendMessage(pingContent).queue();
+                    sb = new StringBuilder();
+                }
+                sb.append(mention);
+            }
+
+            if (sb.length() > 0) {
+                String pingContent = sb.toString() + "Signup for the event, or you're going to get striked!";
+                event.getChannel().sendMessage(pingContent).queue();
+            }
+        });
+
+        event.deferEdit().queue();
+        event.getHook().editOriginal("✅ Signup Ping sent to " + role.getName() + " members!").setComponents().queue();
+    }
+
+    private void handleSignupPingCancel(ButtonInteractionEvent event) {
         event.deferEdit().queue();
         event.getHook().deleteOriginal().queue();
     }
