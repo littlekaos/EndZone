@@ -2,12 +2,13 @@ package EndZone.schedulers;
 
 import EndZone.config.BotConfig;
 import EndZone.forms.EndZoneForm;
+import EndZone.services.DataService;
 import EndZone.services.ServiceManager;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Role;
-import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.entities.channel.concrete.VoiceChannel;
+import net.dv8tion.jda.api.entities.channel.middleman.GuildMessageChannel;
 import net.dv8tion.jda.api.entities.emoji.Emoji;
 
 import java.time.DayOfWeek;
@@ -25,6 +26,7 @@ public class SchedulerManager {
     private static ScheduledExecutorService scheduler;
     private static ZonedDateTime lastStaffAnnouncementTime;
     private static ZonedDateTime lastEventCountdownTime;
+    private static ZonedDateTime lastWeeklyAnnouncementDraftTime;
 
     public static void start(JDA jda) {
         scheduler = Executors.newScheduledThreadPool(4);
@@ -35,8 +37,8 @@ public class SchedulerManager {
         // Status Heartbeat (Every 10 minutes)
         startStatusHeartbeat();
 
-        // Perform immediate reset
-        performWinnersReset(jda);
+        // Perform immediate reset in background
+        scheduler.execute(() -> performWinnersReset(jda));
 
         // Weekly Winners Reset (Sunday @ 6 PM EDT)
         startWeeklyWinnersReset(jda);
@@ -47,6 +49,9 @@ public class SchedulerManager {
         // Weekly Event Countdown (Sunday @ 12 PM EST)
         startEventCountdown(jda);
 
+        // Weekly Announcement (Sunday @ 11 AM EST)
+        startWeeklyAnnouncement(jda);
+        
         // Access Help Automatic Role (30 minutes)
         startAccessHelpRoleScheduler(jda);
     }
@@ -104,6 +109,10 @@ public class SchedulerManager {
                 "\n" +
                 "** **\n" +
                 "**__SUBMIT YOUR ROSTERS IN <#1478566857584808147>!__**";
+    }
+
+    private static String buildWinnerMessage() {
+        return "If you’re representing the clan that won last week's event, get the <@&" + BotConfig.WINNER_ROLE_ID + "> role here!";
     }
 
     private static void startAutoExportScheduler() {
@@ -169,9 +178,62 @@ public class SchedulerManager {
                 }
             }
 
+            // 3. Delete old winner claim messages
+            List<DataService.WinnerMessageEntry> messages = ServiceManager.getDataService().getAllWinnerMessages();
+            for (DataService.WinnerMessageEntry entry : messages) {
+                GuildMessageChannel channel = guild.getChannelById(GuildMessageChannel.class, entry.channelId());
+                if (channel != null) {
+                    channel.deleteMessageById(entry.messageId()).queue(
+                            null,
+                            error -> System.err.println("[SCHEDULER] Failed to delete old winner message: " + error.getMessage())
+                    );
+                }
+            }
+            ServiceManager.getDataService().clearWinnerMessages();
+
             System.out.println("[SCHEDULER] Winners reset completed successfully.");
         } catch (Exception e) {
             System.err.println("[SCHEDULER] Error during winners reset: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    private static void performWeeklyAnnouncement(JDA jda) {
+        try {
+            ZoneId estZone = ZoneId.of("America/New_York");
+            ZonedDateTime now = ZonedDateTime.now(estZone);
+            String todayDate = now.toLocalDate().toString();
+            String lastRun = ServiceManager.getDataService().getMetadata("last_weekly_announcement_run", "");
+
+            if (todayDate.equals(lastRun)) {
+                System.out.println("[SCHEDULER] Weekly announcement already sent today (" + todayDate + "), skipping.");
+                return;
+            }
+
+            System.out.println("[SCHEDULER] Attempting to send weekly announcement...");
+            ZonedDateTime eventTime = now.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY))
+                    .withHour(14).withMinute(0).withSecond(0).withNano(0);
+
+            String messageContent = buildWeeklyAnnouncementMessage(eventTime.toEpochSecond());
+
+            // Send to Announcements
+            String channelId = BotConfig.ANNOUNCEMENTS_CHANNEL_ID;
+            GuildMessageChannel announcementsChannel = jda.getChannelById(GuildMessageChannel.class, channelId);
+            if (announcementsChannel != null) {
+                announcementsChannel.sendMessage(messageContent).queue(
+                        success -> {
+                            System.out.println("[SCHEDULER] Weekly announcement sent successfully to " + announcementsChannel.getName());
+                            ServiceManager.getDataService().setMetadata("last_weekly_announcement_run", todayDate);
+                        },
+                        error -> System.err.println("[SCHEDULER] Failed to send weekly announcement message: " + error.getMessage())
+                );
+            } else {
+                System.err.println("[SCHEDULER] Could not find announcements channel with ID: " + channelId);
+            }
+
+            lastWeeklyAnnouncementDraftTime = now;
+        } catch (Exception e) {
+            System.err.println("[SCHEDULER] Error during weekly announcement: " + e.getMessage());
             e.printStackTrace();
         }
     }
@@ -213,7 +275,7 @@ public class SchedulerManager {
 
             try {
                 String channelId = BotConfig.STAFF_ANNOUNCEMENTS_CHANNEL_ID;
-                TextChannel channel = jda.getTextChannelById(channelId);
+                GuildMessageChannel channel = jda.getChannelById(GuildMessageChannel.class, channelId);
                 if (channel != null) {
                     ZonedDateTime nextSun = runTime.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY))
                             .withHour(14).withMinute(0).withSecond(0).withNano(0);
@@ -239,11 +301,11 @@ public class SchedulerManager {
         ZonedDateTime nextRun = now.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY))
                 .withHour(12).withMinute(0).withSecond(0).withNano(0);
 
-        if (now.isAfter(nextRun)) {
+        if (now.isAfter(nextRun.plusHours(2))) {
             nextRun = nextRun.plusWeeks(1);
         }
 
-        long initialDelay = Duration.between(now, nextRun).toSeconds();
+        long initialDelay = Math.max(0, Duration.between(now, nextRun).toSeconds());
         long period = TimeUnit.DAYS.toSeconds(7);
 
         scheduler.scheduleAtFixedRate(() -> {
@@ -252,12 +314,22 @@ public class SchedulerManager {
                     return;
                 }
                 String channelId = BotConfig.EVENT_COUNTDOWNS_CHANNEL_ID;
-                TextChannel channel = jda.getTextChannelById(channelId);
+                GuildMessageChannel channel = jda.getChannelById(GuildMessageChannel.class, channelId);
                 if (channel != null) {
                     channel.sendMessage(buildEventMessage()).queue(message -> {
                         lastEventCountdownTime = ZonedDateTime.now(edtZone);
                         Emoji emoji = Emoji.fromCustom(BotConfig.EZ_EMOJI_NAME, Long.parseLong(BotConfig.EZ_EMOJI_ID), false);
                         message.addReaction(emoji).queue();
+
+                        // Send winner message to event countdowns
+                        GuildMessageChannel countdownChannel = jda.getChannelById(GuildMessageChannel.class, BotConfig.EVENT_COUNTDOWNS_CHANNEL_ID);
+                        if (countdownChannel != null) {
+                            countdownChannel.sendMessage(buildWinnerMessage()).queue(winnerMsg -> {
+                                Emoji winnerEmoji = Emoji.fromCustom(BotConfig.EZ_EMOJI_NAME, Long.parseLong(BotConfig.EZ_EMOJI_ID), false);
+                                winnerMsg.addReaction(winnerEmoji).queue();
+                                ServiceManager.getDataService().addWinnerMessage(winnerMsg.getId(), BotConfig.EVENT_COUNTDOWNS_CHANNEL_ID, BotConfig.GUILD_ID);
+                            });
+                        }
                     });
                 }
             } catch (Exception e) {
@@ -267,6 +339,61 @@ public class SchedulerManager {
         }, initialDelay, period, TimeUnit.SECONDS);
 
         System.out.println("[SCHEDULER] Weekly Event Countdown scheduled (Next run: " + nextRun + ")");
+    }
+
+    private static void startWeeklyAnnouncement(JDA jda) {
+        ZoneId estZone = ZoneId.of("America/New_York");
+        ZonedDateTime now = ZonedDateTime.now(estZone);
+        ZonedDateTime nextRun = now.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY))
+                .withHour(11).withMinute(0).withSecond(0).withNano(0);
+
+        if (now.isAfter(nextRun)) {
+            nextRun = nextRun.plusWeeks(1);
+        }
+
+        long initialDelay = Duration.between(now, nextRun).toSeconds();
+        long period = TimeUnit.DAYS.toSeconds(7);
+
+        scheduler.scheduleAtFixedRate(() -> performWeeklyAnnouncement(jda), initialDelay, period, TimeUnit.SECONDS);
+
+        System.out.println("[SCHEDULER] Weekly Announcement scheduled (Next run: " + nextRun + ")");
+    }
+
+    private static String buildWeeklyAnnouncementMessage(long eventTimestamp) {
+        return "<:EZ_new:1478805339011809350> **ENDZONE EVENT IS STARTING <t:" + eventTimestamp + ":R> !** <:EZ_new:1478805339011809350>\n" +
+                "\n" +
+                "@everyone\n" +
+                "\n" +
+                "<:DuoEZ:1465846857103048766> 2 duo games, one EU game and one USE game; THEN\n" +
+                "<:SquadsEZ:1478805345471041637> 8 squad games, alternating every 2 games between EU and USE, starting with EU.\n" +
+                "\n" +
+                "<a:ah:1478805260372934676> 6 duos limit.\n" +
+                "\n" +
+                "<a:ah:1478805260372934676> 3 squads limit.\n" +
+                "\n" +
+                "<a:Attention:1160427579216511066> Cosmetics are prohibited.\n" +
+                "\n" +
+                "<a:Attention:1160427579216511066> Stormhealing is no longer allowed.\n" +
+                "\n" +
+                "    Stormhealing is as follows:\n" +
+                "    -Going into the storm to use more meds than you currently hold.\n" +
+                "\n" +
+                "    You may dip in to use current meds, but you should not stay in storm to gather and heal more and win by that.\n" +
+                "    You must come out before the zone closes. This is a form of griefing.\n" +
+                "\n" +
+                "<a:POLICE:1479582008014541018> Make sure you are using the following rules:\n" +
+                "\n" +
+                "📇 Name Rule\n" +
+                "All participants must have the same nickname within the discord server as in game, or you can use `/eventname submit`. No vertical names allowed in game. If the streamer and staff cannot view your proper name, **__it will be voided.__**\n" +
+                "\n" +
+                "🎶 Clan Voice Channels\n" +
+                "All clans participating **__MUST__** have their duos/squads join voice chat channels within the EndZone discord server. All voice chats must be locked and limited in order for win to count. To learn more on how to do so please read <#1478631200892518400>.\n" +
+                "\n" +
+                "Make sure you are familiar with these rules and are abiding by them!\n" +
+                "\n" +
+                "🏆 Who will take the trophy in the EndZone? Let's find out!\n" +
+                "\n" +
+                " <a:HYPE:1513154798231224393> Good Luck everyone! <a:HYPE:1513154798231224393>\n" ;
     }
 
     private static void startAccessHelpRoleScheduler(JDA jda) {

@@ -10,11 +10,24 @@ import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import net.dv8tion.jda.api.interactions.components.ActionRow;
 import net.dv8tion.jda.api.interactions.components.buttons.Button;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class SignupPingCommand implements Command {
 
     private final EndZone bot;
+    private static final Map<String, SignupPingData> pendingPings = new ConcurrentHashMap<>();
+
+    public record SignupPingData(String roleId, List<String> excludeIds) {}
+
+    public static SignupPingData getPendingPing(String uuid) {
+        return pendingPings.remove(uuid);
+    }
 
     public SignupPingCommand(EndZone bot) {
         this.bot = bot;
@@ -27,7 +40,7 @@ public class SignupPingCommand implements Command {
                         .setGuildOnly(true)
                         .addOptions(
                                 new OptionData(OptionType.ROLE, "role", "The role to ping", true),
-                                new OptionData(OptionType.USER, "exclude", "A user to exclude from the ping", false)
+                                new OptionData(OptionType.STRING, "excludes", "User mentions or IDs to exclude (space-separated)", false)
                         )
         );
     }
@@ -42,14 +55,31 @@ public class SignupPingCommand implements Command {
         String roleId = event.getOption("role").getAsRole().getId();
         String roleName = event.getOption("role").getAsRole().getName();
         
-        var excludeOption = event.getOption("exclude");
-        String excludeId = excludeOption != null ? excludeOption.getAsUser().getId() : "none";
-        String excludeName = excludeOption != null ? " (excluding " + excludeOption.getAsUser().getName() + ")" : "";
+        List<String> excludeIds = new ArrayList<>();
+        var excludesOption = event.getOption("excludes");
+        
+        if (excludesOption != null) {
+            String input = excludesOption.getAsString();
+            // Match mentions <@!123> or <@123> or raw IDs 123
+            Pattern pattern = Pattern.compile("<@!?(\\d+)>|(\\d{17,20})");
+            Matcher matcher = pattern.matcher(input);
+            while (matcher.find()) {
+                String id = matcher.group(1) != null ? matcher.group(1) : matcher.group(2);
+                if (!excludeIds.contains(id)) {
+                    excludeIds.add(id);
+                }
+            }
+        }
 
-        event.reply("Are you sure you want to ping all members of **" + roleName + "**" + excludeName + " to signup?")
+        String excludeString = excludeIds.isEmpty() ? "" : " (excluding " + excludeIds.size() + " users)";
+        
+        String uuid = UUID.randomUUID().toString();
+        pendingPings.put(uuid, new SignupPingData(roleId, excludeIds));
+
+        event.reply("Are you sure you want to ping all members of **" + roleName + "**" + excludeString + " to signup?")
                 .addComponents(ActionRow.of(
-                        Button.success("signup_ping_confirm:" + roleId + ":" + excludeId, "Send Signup Ping"),
-                        Button.danger("signup_ping_cancel:direct", "Cancel")
+                        Button.success("signup_ping_confirm:" + uuid, "Send Signup Ping"),
+                        Button.danger("signup_ping_cancel:" + uuid, "Cancel")
                 ))
                 .setEphemeral(true)
                 .queue();

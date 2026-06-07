@@ -374,6 +374,16 @@ public class DatabaseService {
                 )
             """);
 
+            // winner_messages
+            stmt.execute("""
+                CREATE TABLE IF NOT EXISTS winner_messages (
+                    message_id VARCHAR(32) PRIMARY KEY,
+                    channel_id VARCHAR(32) NOT NULL,
+                    guild_id VARCHAR(32) NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """);
+
             System.out.println("[DATABASE] All tables created or verified in unified database");
             
             // Log strike count on startup

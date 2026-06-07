@@ -2,6 +2,7 @@ package EndZone.events;
 
 import EndZone.EndZone;
 import EndZone.config.BotConfig;
+import EndZone.services.DataService;
 import EndZone.services.ServiceManager;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.Role;
@@ -59,6 +60,32 @@ public class ReactionEventListener extends ListenerAdapter {
         // Check for multiple reactions on the verification-reaction-roles message
         if (event.getMessageId().equals(BotConfig.VERIFICATION_REACTION_ROLES_MESSAGE_ID)) {
             checkMultiReaction(event);
+        }
+
+        // Handle winner role claim via reaction
+        handleWinnerRoleClaim(event);
+    }
+
+    private void handleWinnerRoleClaim(MessageReactionAddEvent event) {
+        // Check if the reaction is the EZ emoji
+        if (!event.getReaction().getEmoji().getName().equals(BotConfig.EZ_EMOJI_NAME)) {
+            return;
+        }
+
+        // Check if message is a winner claim message
+        List<DataService.WinnerMessageEntry> entries = ServiceManager.getDataService().getAllWinnerMessages();
+        boolean isWinnerMessage = entries.stream().anyMatch(e -> e.messageId().equals(event.getMessageId()));
+
+        if (isWinnerMessage) {
+            Role winnerRole = event.getGuild().getRoleById(BotConfig.WINNER_ROLE_ID);
+            if (winnerRole != null) {
+                event.getGuild().addRoleToMember(event.getMember(), winnerRole).queue(
+                        success -> {
+                            // Optionally notify user or just keep it silent
+                        },
+                        error -> System.err.println("Failed to give winner role via reaction: " + error.getMessage())
+                );
+            }
         }
     }
 

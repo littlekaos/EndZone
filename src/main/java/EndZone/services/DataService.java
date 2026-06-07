@@ -634,4 +634,52 @@ public class DataService {
     public void setEventCountdownEnabled(boolean enabled) {
         setMetadata("event_countdown_enabled", String.valueOf(enabled));
     }
+
+    public void addWinnerMessage(String messageId, String channelId, String guildId) {
+        try (Connection conn = DatabaseService.getConnection()) {
+            String sql = "INSERT INTO winner_messages (message_id, channel_id, guild_id) VALUES (?, ?, ?)";
+            try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                pstmt.setString(1, messageId);
+                pstmt.setString(2, channelId);
+                pstmt.setString(3, guildId);
+                pstmt.executeUpdate();
+            }
+        } catch (Exception e) {
+            System.err.println("Error adding winner message: " + e.getMessage());
+        }
+    }
+
+    public List<WinnerMessageEntry> getAllWinnerMessages() {
+        List<WinnerMessageEntry> entries = new ArrayList<>();
+        try (Connection conn = DatabaseService.getConnection()) {
+            String sql = "SELECT message_id, channel_id, guild_id FROM winner_messages";
+            try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                try (ResultSet rs = pstmt.executeQuery()) {
+                    while (rs.next()) {
+                        entries.add(new WinnerMessageEntry(
+                            rs.getString("message_id"),
+                            rs.getString("channel_id"),
+                            rs.getString("guild_id")
+                        ));
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Error getting winner messages: " + e.getMessage());
+        }
+        return entries;
+    }
+
+    public void clearWinnerMessages() {
+        try (Connection conn = DatabaseService.getConnection()) {
+            String sql = "DELETE FROM winner_messages";
+            try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                pstmt.executeUpdate();
+            }
+        } catch (Exception e) {
+            System.err.println("Error clearing winner messages: " + e.getMessage());
+        }
+    }
+
+    public static record WinnerMessageEntry(String messageId, String channelId, String guildId) {}
 }

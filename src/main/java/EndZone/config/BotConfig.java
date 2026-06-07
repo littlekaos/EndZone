@@ -146,6 +146,7 @@ public class BotConfig {
     public static final String STAR_ROLE_ID = "1138949735957413999";
     public static final String ALPHAS_ROLE_ID = "790162570455154699";
     public static final String SERVER_ROBOTS_ROLE_ID = "1458623869807230977";
+    public static final String WINNER_ROLE_ID = "1479306922447339712";
 
     public static final String ALPHA_BETAS_ROLE_ID = "810285573985796147";
     public static final String OTHER_GAMES_MANAGER_ROLE_ID = "1477822335745654847";
@@ -191,6 +192,7 @@ public class BotConfig {
     public static final String STAFF_STRIKE_LOG_CHANNEL_ID = "1478591744357568594";
     public static final String STAFF_VERIFY_CHANNEL_ID = "1197710900426190910";
     public static final String STAFF_ANNOUNCEMENTS_CHANNEL_ID = "1478569094411190353";
+    public static final String ANNOUNCEMENTS_CHANNEL_ID = "1478574358741127268";
     public static final String RULES_CHANNEL_ID = "790162355404144670";
     public static final String DRAFTING_THINGS_CHANNEL_ID = "1478569800954544270";
     public static final String EVENT_COUNTDOWNS_CHANNEL_ID = "1478566788177330349";
@@ -403,6 +405,10 @@ public class BotConfig {
 
     public String getModLogChannelId() {
         return MOD_LOG_CHANNEL_ID;
+    }
+
+    public String getAnnouncementsChannelId() {
+        return ANNOUNCEMENTS_CHANNEL_ID;
     }
 
     public List<String> getAutoReactionChannels() {
