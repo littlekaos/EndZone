@@ -37,9 +37,6 @@ public class SchedulerManager {
         // Status Heartbeat (Every 10 minutes)
         startStatusHeartbeat();
 
-        // Perform immediate reset in background
-        scheduler.execute(() -> performWinnersReset(jda));
-
         // Weekly Winners Reset (Sunday @ 6 PM EDT)
         startWeeklyWinnersReset(jda);
 
@@ -134,6 +131,16 @@ public class SchedulerManager {
 
     private static void performWinnersReset(JDA jda) {
         try {
+            ZoneId edtZone = ZoneId.of("America/New_York");
+            ZonedDateTime now = ZonedDateTime.now(edtZone);
+            String todayDate = now.toLocalDate().toString();
+            String lastRun = ServiceManager.getDataService().getMetadata("last_winners_reset_run", "");
+
+            if (todayDate.equals(lastRun)) {
+                System.out.println("[SCHEDULER] Winners reset already performed today (" + todayDate + "), skipping.");
+                return;
+            }
+
             String guildId = BotConfig.GUILD_ID;
             Guild guild = jda.getGuildById(guildId);
             if (guild == null) return;
@@ -190,6 +197,7 @@ public class SchedulerManager {
                 }
             }
             ServiceManager.getDataService().clearWinnerMessages();
+            ServiceManager.getDataService().setMetadata("last_winners_reset_run", todayDate);
 
             System.out.println("[SCHEDULER] Winners reset completed successfully.");
         } catch (Exception e) {
@@ -243,7 +251,10 @@ public class SchedulerManager {
         ZonedDateTime now = ZonedDateTime.now(edtZone);
         ZonedDateTime nextRun = now.with(DayOfWeek.SUNDAY).withHour(18).withMinute(0).withSecond(0).withNano(0);
 
-        if (now.isAfter(nextRun)) {
+        String todayDate = now.toLocalDate().toString();
+        String lastRun = ServiceManager.getDataService().getMetadata("last_winners_reset_run", "");
+
+        if (now.isAfter(nextRun) || todayDate.equals(lastRun)) {
             nextRun = nextRun.plusWeeks(1);
         }
 
@@ -260,39 +271,53 @@ public class SchedulerManager {
         ZonedDateTime now = ZonedDateTime.now(edtZone);
         ZonedDateTime nextRun = now.withHour(10).withMinute(0).withSecond(0).withNano(0);
 
-        if (now.isAfter(nextRun)) {
+        String todayDate = now.toLocalDate().toString();
+        String lastRun = ServiceManager.getDataService().getMetadata("last_staff_announcement_run", "");
+
+        if (now.isAfter(nextRun) || todayDate.equals(lastRun)) {
             nextRun = nextRun.plusDays(1);
         }
 
         long initialDelay = Duration.between(now, nextRun).toSeconds();
         long period = TimeUnit.DAYS.toSeconds(1);
 
-        scheduler.scheduleAtFixedRate(() -> {
-            ZonedDateTime runTime = ZonedDateTime.now(edtZone);
-            if (runTime.getDayOfWeek() == DayOfWeek.MONDAY) {
-                return; // Skip Monday
-            }
-
-            try {
-                String channelId = BotConfig.STAFF_ANNOUNCEMENTS_CHANNEL_ID;
-                GuildMessageChannel channel = jda.getChannelById(GuildMessageChannel.class, channelId);
-                if (channel != null) {
-                    ZonedDateTime nextSun = runTime.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY))
-                            .withHour(14).withMinute(0).withSecond(0).withNano(0);
-                    String timestamp = "<t:" + nextSun.toEpochSecond() + ":F>";
-
-                    String ordinal = getReminderOrdinal(runTime.getDayOfWeek());
-                    channel.sendMessage(buildStaffMessage(timestamp, ordinal)).queue(success -> {
-                        lastStaffAnnouncementTime = ZonedDateTime.now(edtZone);
-                    });
-                }
-            } catch (Exception e) {
-                System.err.println("[SCHEDULER] Error during daily announcement: " + e.getMessage());
-                e.printStackTrace();
-            }
-        }, initialDelay, period, TimeUnit.SECONDS);
+        scheduler.scheduleAtFixedRate(() -> performDailyAnnouncement(jda), initialDelay, period, TimeUnit.SECONDS);
 
         System.out.println("[SCHEDULER] Daily Staff Announcements scheduled (Next run: " + nextRun + ")");
+    }
+
+    private static void performDailyAnnouncement(JDA jda) {
+        ZoneId edtZone = ZoneId.of("America/New_York");
+        ZonedDateTime runTime = ZonedDateTime.now(edtZone);
+        if (runTime.getDayOfWeek() == DayOfWeek.MONDAY) {
+            return; // Skip Monday
+        }
+
+        try {
+            String todayDate = runTime.toLocalDate().toString();
+            String lastRun = ServiceManager.getDataService().getMetadata("last_staff_announcement_run", "");
+
+            if (todayDate.equals(lastRun)) {
+                return;
+            }
+
+            String channelId = BotConfig.STAFF_ANNOUNCEMENTS_CHANNEL_ID;
+            GuildMessageChannel channel = jda.getChannelById(GuildMessageChannel.class, channelId);
+            if (channel != null) {
+                ZonedDateTime nextSun = runTime.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY))
+                        .withHour(14).withMinute(0).withSecond(0).withNano(0);
+                String timestamp = "<t:" + nextSun.toEpochSecond() + ":F>";
+
+                String ordinal = getReminderOrdinal(runTime.getDayOfWeek());
+                channel.sendMessage(buildStaffMessage(timestamp, ordinal)).queue(success -> {
+                    lastStaffAnnouncementTime = ZonedDateTime.now(edtZone);
+                    ServiceManager.getDataService().setMetadata("last_staff_announcement_run", todayDate);
+                });
+            }
+        } catch (Exception e) {
+            System.err.println("[SCHEDULER] Error during daily announcement: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
     private static void startEventCountdown(JDA jda) {
@@ -301,44 +326,61 @@ public class SchedulerManager {
         ZonedDateTime nextRun = now.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY))
                 .withHour(12).withMinute(0).withSecond(0).withNano(0);
 
-        if (now.isAfter(nextRun.plusHours(2))) {
+        String todayDate = now.toLocalDate().toString();
+        String lastRun = ServiceManager.getDataService().getMetadata("last_event_countdown_run", "");
+
+        if (now.isAfter(nextRun.plusHours(2)) || todayDate.equals(lastRun)) {
             nextRun = nextRun.plusWeeks(1);
         }
 
         long initialDelay = Math.max(0, Duration.between(now, nextRun).toSeconds());
         long period = TimeUnit.DAYS.toSeconds(7);
 
-        scheduler.scheduleAtFixedRate(() -> {
-            try {
-                if (!ServiceManager.getDataService().isEventCountdownEnabled()) {
-                    return;
-                }
-                String channelId = BotConfig.EVENT_COUNTDOWNS_CHANNEL_ID;
-                GuildMessageChannel channel = jda.getChannelById(GuildMessageChannel.class, channelId);
-                if (channel != null) {
-                    channel.sendMessage(buildEventMessage()).queue(message -> {
-                        lastEventCountdownTime = ZonedDateTime.now(edtZone);
-                        Emoji emoji = Emoji.fromCustom(BotConfig.EZ_EMOJI_NAME, Long.parseLong(BotConfig.EZ_EMOJI_ID), false);
-                        message.addReaction(emoji).queue();
-
-                        // Send winner message to event countdowns
-                        GuildMessageChannel countdownChannel = jda.getChannelById(GuildMessageChannel.class, BotConfig.EVENT_COUNTDOWNS_CHANNEL_ID);
-                        if (countdownChannel != null) {
-                            countdownChannel.sendMessage(buildWinnerMessage()).queue(winnerMsg -> {
-                                Emoji winnerEmoji = Emoji.fromCustom(BotConfig.EZ_EMOJI_NAME, Long.parseLong(BotConfig.EZ_EMOJI_ID), false);
-                                winnerMsg.addReaction(winnerEmoji).queue();
-                                ServiceManager.getDataService().addWinnerMessage(winnerMsg.getId(), BotConfig.EVENT_COUNTDOWNS_CHANNEL_ID, BotConfig.GUILD_ID);
-                            });
-                        }
-                    });
-                }
-            } catch (Exception e) {
-                System.err.println("[SCHEDULER] Error during event countdown: " + e.getMessage());
-                e.printStackTrace();
-            }
-        }, initialDelay, period, TimeUnit.SECONDS);
+        scheduler.scheduleAtFixedRate(() -> performEventCountdown(jda), initialDelay, period, TimeUnit.SECONDS);
 
         System.out.println("[SCHEDULER] Weekly Event Countdown scheduled (Next run: " + nextRun + ")");
+    }
+
+    private static void performEventCountdown(JDA jda) {
+        try {
+            ZoneId edtZone = ZoneId.of("America/New_York");
+            ZonedDateTime now = ZonedDateTime.now(edtZone);
+            String todayDate = now.toLocalDate().toString();
+            String lastRun = ServiceManager.getDataService().getMetadata("last_event_countdown_run", "");
+
+            if (todayDate.equals(lastRun)) {
+                System.out.println("[SCHEDULER] Event countdown already sent today (" + todayDate + "), skipping.");
+                return;
+            }
+
+            if (!ServiceManager.getDataService().isEventCountdownEnabled()) {
+                return;
+            }
+
+            String channelId = BotConfig.EVENT_COUNTDOWNS_CHANNEL_ID;
+            GuildMessageChannel channel = jda.getChannelById(GuildMessageChannel.class, channelId);
+            if (channel != null) {
+                channel.sendMessage(buildEventMessage()).queue(message -> {
+                    lastEventCountdownTime = ZonedDateTime.now(edtZone);
+                    Emoji emoji = Emoji.fromCustom(BotConfig.EZ_EMOJI_NAME, Long.parseLong(BotConfig.EZ_EMOJI_ID), false);
+                    message.addReaction(emoji).queue();
+
+                    // Send winner message to event countdowns
+                    GuildMessageChannel countdownChannel = jda.getChannelById(GuildMessageChannel.class, BotConfig.EVENT_COUNTDOWNS_CHANNEL_ID);
+                    if (countdownChannel != null) {
+                        countdownChannel.sendMessage(buildWinnerMessage()).queue(winnerMsg -> {
+                            Emoji winnerEmoji = Emoji.fromCustom(BotConfig.WINNER_CLAIM_EMOJI_NAME, Long.parseLong(BotConfig.WINNER_CLAIM_EMOJI_ID), false);
+                            winnerMsg.addReaction(winnerEmoji).queue();
+                            ServiceManager.getDataService().addWinnerMessage(winnerMsg.getId(), BotConfig.EVENT_COUNTDOWNS_CHANNEL_ID, BotConfig.GUILD_ID);
+                        });
+                    }
+                    ServiceManager.getDataService().setMetadata("last_event_countdown_run", todayDate);
+                });
+            }
+        } catch (Exception e) {
+            System.err.println("[SCHEDULER] Error during event countdown: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
     private static void startWeeklyAnnouncement(JDA jda) {

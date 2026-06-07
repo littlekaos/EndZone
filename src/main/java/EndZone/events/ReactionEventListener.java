@@ -9,6 +9,8 @@ import net.dv8tion.jda.api.entities.Role;
 import net.dv8tion.jda.api.entities.MessageReaction;
 import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
+import net.dv8tion.jda.api.entities.emoji.Emoji;
+import net.dv8tion.jda.api.entities.emoji.EmojiUnion;
 import net.dv8tion.jda.api.events.message.react.MessageReactionAddEvent;
 import net.dv8tion.jda.api.events.message.react.MessageReactionRemoveEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
@@ -67,8 +69,15 @@ public class ReactionEventListener extends ListenerAdapter {
     }
 
     private void handleWinnerRoleClaim(MessageReactionAddEvent event) {
-        // Check if the reaction is the EZ emoji
-        if (!event.getReaction().getEmoji().getName().equals(BotConfig.EZ_EMOJI_NAME)) {
+        EmojiUnion emoji = event.getEmoji();
+        boolean isWinnerEmoji = false;
+        if (emoji.getType() == Emoji.Type.CUSTOM) {
+            isWinnerEmoji = emoji.asCustom().getId().equals(BotConfig.WINNER_CLAIM_EMOJI_ID);
+        } else {
+            isWinnerEmoji = emoji.getName().equals(BotConfig.WINNER_CLAIM_EMOJI_NAME);
+        }
+
+        if (!isWinnerEmoji) {
             return;
         }
 
@@ -77,15 +86,29 @@ public class ReactionEventListener extends ListenerAdapter {
         boolean isWinnerMessage = entries.stream().anyMatch(e -> e.messageId().equals(event.getMessageId()));
 
         if (isWinnerMessage) {
-            Role winnerRole = event.getGuild().getRoleById(BotConfig.WINNER_ROLE_ID);
-            if (winnerRole != null) {
-                event.getGuild().addRoleToMember(event.getMember(), winnerRole).queue(
-                        success -> {
-                            // Optionally notify user or just keep it silent
-                        },
-                        error -> System.err.println("Failed to give winner role via reaction: " + error.getMessage())
-                );
-            }
+            giveWinnerRole(event);
+        } else {
+            // Fallback: Check message content in case database was cleared
+            event.getChannel().retrieveMessageById(event.getMessageId()).queue(message -> {
+                String expected = "If you’re representing the clan that won last week's event, get the <@&" + BotConfig.WINNER_ROLE_ID + "> role here!";
+                if (message.getAuthor().getId().equals(event.getJDA().getSelfUser().getId()) && message.getContentRaw().equals(expected)) {
+                    giveWinnerRole(event);
+                    // Add it back to the database so we don't have to retrieve it again
+                    ServiceManager.getDataService().addWinnerMessage(event.getMessageId(), event.getChannel().getId(), event.getGuild().getId());
+                }
+            });
+        }
+    }
+
+    private void giveWinnerRole(MessageReactionAddEvent event) {
+        Role winnerRole = event.getGuild().getRoleById(BotConfig.WINNER_ROLE_ID);
+        if (winnerRole != null) {
+            event.getGuild().addRoleToMember(event.getMember(), winnerRole).queue(
+                    success -> {
+                        // Successfully gave the role
+                    },
+                    error -> System.err.println("Failed to give winner role via reaction: " + error.getMessage())
+            );
         }
     }
 

@@ -61,6 +61,7 @@ public class CommandEventListener extends ListenerAdapter {
         registerCommand(new AFKCommand(bot));
         registerCommand(new SignupPingCommand(bot));
         registerCommand(new EventCountdownToggleCommand(bot));
+        registerCommand(new SyncWinnersCommand());
     }
 
     private void registerCommand(Command command) {
@@ -105,6 +106,7 @@ public class CommandEventListener extends ListenerAdapter {
             allCommands.addAll(new AFKCommand(bot).getCommandDataList());
             allCommands.addAll(new SignupPingCommand(bot).getCommandDataList());
             allCommands.addAll(new EventCountdownToggleCommand(bot).getCommandDataList());
+            allCommands.addAll(new SyncWinnersCommand().getCommandDataList());
             
             // Clear global commands to avoid duplicates
             jda.updateCommands().queue();

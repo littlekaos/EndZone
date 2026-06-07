@@ -42,6 +42,11 @@ public class BotConfig {
     public static final String EZ_EMOJI_ID = "1478805339011809350";
     public static final String EZ_EMOJI_MENTION = "<:EZ_new:1478805339011809350>";
 
+    public static final String FIRST_EMOJI_NAME = "1st";
+    public static final String FIRST_EMOJI_ID = "1478790193921396922";
+    public static final String WINNER_CLAIM_EMOJI_ID = FIRST_EMOJI_ID;
+    public static final String WINNER_CLAIM_EMOJI_NAME = FIRST_EMOJI_NAME;
+
     private static final Map<String, EmojiConfig> CHANNEL_EMOJI_MAP = createChannelEmojiMap();
 
     private static Map<String, EmojiConfig> createChannelEmojiMap() {
