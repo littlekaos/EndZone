@@ -366,6 +366,14 @@ public class DatabaseService {
                 )
             """);
 
+            // ez_access_help_tracking
+            stmt.execute("""
+                CREATE TABLE IF NOT EXISTS ez_access_help_tracking (
+                    user_id VARCHAR(32) PRIMARY KEY,
+                    timestamp BIGINT NOT NULL
+                )
+            """);
+
             System.out.println("[DATABASE] All tables created or verified in unified database");
             
             // Log strike count on startup

@@ -37,8 +37,8 @@ public class TimeoutCommand implements Command {
 
     @Override
     public void execute(SlashCommandInteractionEvent event) {
-        if (!PermissionUtils.isModerator(event.getMember(), bot.getConfig()) && !PermissionUtils.isSemiMod(event.getMember(), bot.getConfig())) {
-            event.replyEmbeds(EmbedUtils.createErrorEmbed("You don't have permission to use this command.")).setEphemeral(true).queue();
+        if (!PermissionUtils.isSeniorSentinelOrHigher(event.getMember(), bot.getConfig())) {
+            event.replyEmbeds(EmbedUtils.createErrorEmbed("You don't have permission to use this command. Only Senior Sentinel+ can use this command.")).setEphemeral(true).queue();
             return;
         }
 

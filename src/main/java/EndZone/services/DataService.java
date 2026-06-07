@@ -536,4 +536,102 @@ public class DataService {
             }
         }
     }
+
+    public void addAccessHelpTracking(String userId, long timestamp) {
+        try (Connection conn = DatabaseService.getConnection()) {
+            String sql = "INSERT OR IGNORE INTO ez_access_help_tracking (user_id, timestamp) VALUES (?, ?)";
+            try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                pstmt.setString(1, userId);
+                pstmt.setLong(2, timestamp);
+                pstmt.executeUpdate();
+            }
+        } catch (Exception e) {
+            System.err.println("Error adding access help tracking: " + e.getMessage());
+        }
+    }
+
+    public Long getAccessHelpTimestamp(String userId) {
+        try (Connection conn = DatabaseService.getConnection()) {
+            String sql = "SELECT timestamp FROM ez_access_help_tracking WHERE user_id = ?";
+            try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                pstmt.setString(1, userId);
+                try (ResultSet rs = pstmt.executeQuery()) {
+                    if (rs.next()) {
+                        return rs.getLong("timestamp");
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Error getting access help timestamp: " + e.getMessage());
+        }
+        return null;
+    }
+
+    public void removeAccessHelpTracking(String userId) {
+        try (Connection conn = DatabaseService.getConnection()) {
+            String sql = "DELETE FROM ez_access_help_tracking WHERE user_id = ?";
+            try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                pstmt.setString(1, userId);
+                pstmt.executeUpdate();
+            }
+        } catch (Exception e) {
+            System.err.println("Error removing access help tracking: " + e.getMessage());
+        }
+    }
+
+    public List<String> getEligibleAccessHelpUsers(long cutOffTime) {
+        List<String> userIds = new ArrayList<>();
+        try (Connection conn = DatabaseService.getConnection()) {
+            String sql = "SELECT user_id FROM ez_access_help_tracking WHERE timestamp <= ?";
+            try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                pstmt.setLong(1, cutOffTime);
+                try (ResultSet rs = pstmt.executeQuery()) {
+                    while (rs.next()) {
+                        userIds.add(rs.getString("user_id"));
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Error getting eligible access help users: " + e.getMessage());
+        }
+        return userIds;
+    }
+
+    public void setMetadata(String key, String value) {
+        try (Connection conn = DatabaseService.getConnection()) {
+            String sql = "INSERT OR REPLACE INTO bot_metadata (key, value) VALUES (?, ?)";
+            try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                pstmt.setString(1, key);
+                pstmt.setString(2, value);
+                pstmt.executeUpdate();
+            }
+        } catch (Exception e) {
+            System.err.println("Error setting metadata: " + e.getMessage());
+        }
+    }
+
+    public String getMetadata(String key, String defaultValue) {
+        try (Connection conn = DatabaseService.getConnection()) {
+            String sql = "SELECT value FROM bot_metadata WHERE key = ?";
+            try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                pstmt.setString(1, key);
+                try (ResultSet rs = pstmt.executeQuery()) {
+                    if (rs.next()) {
+                        return rs.getString("value");
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Error getting metadata: " + e.getMessage());
+        }
+        return defaultValue;
+    }
+
+    public boolean isEventCountdownEnabled() {
+        return Boolean.parseBoolean(getMetadata("event_countdown_enabled", "true"));
+    }
+
+    public void setEventCountdownEnabled(boolean enabled) {
+        setMetadata("event_countdown_enabled", String.valueOf(enabled));
+    }
 }

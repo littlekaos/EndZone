@@ -35,8 +35,8 @@ public class UntimeoutCommand implements Command {
 
     @Override
     public void execute(SlashCommandInteractionEvent event) {
-        if (!PermissionUtils.isModerator(event.getMember(), ServiceManager.getConfig()) && !PermissionUtils.isSemiMod(event.getMember(), ServiceManager.getConfig())) {
-            event.replyEmbeds(EmbedUtils.createErrorEmbed("You don't have permission to use this command.")).setEphemeral(true).queue();
+        if (!PermissionUtils.isSeniorSentinelOrHigher(event.getMember(), ServiceManager.getConfig())) {
+            event.replyEmbeds(EmbedUtils.createErrorEmbed("You don't have permission to use this command. Only Senior Sentinel+ can use this command.")).setEphemeral(true).queue();
             return;
         }
 

@@ -82,6 +82,16 @@ public class PermissionUtils {
                                 adminRoles.contains(role.getId()));
     }
 
+    public static boolean isSeniorSentinelOrHigher(Member member, BotConfig config) {
+        if (member == null) {
+            return false;
+        }
+
+        String seniorSentinelId = BotConfig.SENIOR_SENTINELS_ROLE_ID;
+        return member.getRoles().stream()
+                .anyMatch(role -> role.getId().equals(seniorSentinelId)) || isAlphaBetaOrHigher(member, config);
+    }
+
     public static boolean isGfxOrHigher(Member member, BotConfig config) {
         if (member == null) {
             return false;

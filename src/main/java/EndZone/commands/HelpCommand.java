@@ -113,6 +113,7 @@ public class HelpCommand implements Command {
                 "⚙️ System & Admin",
                 "**`/say`** - Send a message with formatting **<@&" + BotConfig.COURT_THE_DISTRICT_ATTORNIES_EZ_ROLE_ID + "> +**\n" +
                 "**`/eventping`** - Send an event ping **<@&" + BotConfig.COURT_THE_DISTRICT_ATTORNIES_EZ_ROLE_ID + "> +**\n" +
+                "**`/eventcountdowntoggle`** - Toggle weekly countdown **<@&" + BotConfig.COURT_THE_JUDGE_EZ_ROLE_ID + "> +**\n" +
                 "**`/signup-ping`** - Ping a role for signup **<@&" + BotConfig.COURT_THE_DISTRICT_ATTORNIES_EZ_ROLE_ID + "> +**\n" +
                 "**`/steal`** - Steal an emoji from another server **<@&" + BotConfig.COURT_THE_DISTRICT_ATTORNIES_EZ_ROLE_ID + "> +**\n" +
                 "**`/reactionrole`** - Setup and manage reaction roles **<@&" + BotConfig.COURT_THE_DISTRICT_ATTORNIES_EZ_ROLE_ID + "> +**\n" +
@@ -130,7 +131,7 @@ public class HelpCommand implements Command {
                 "**`/help`** - View this help menu\n" +
                 "**`/test`** - Check if the bot is operational\n" +
                 "**`/afk [reason]`** - Set your AFK status\n" +
-                "**`/afk [reason] [user]`** - Set another user's AFK status **<@&" + BotConfig.TRIAL_SENTINELS_ROLE_ID + "> +**",
+                "**`/afk [reason] [user]`** - Set another user's AFK status **<@&" + BotConfig.ALPHA_BETAS_ROLE_ID + "> +**",
                 false
         );
     }
@@ -150,8 +151,8 @@ public class HelpCommand implements Command {
                 "**`/warn`** - Warn a user **<@&" + BotConfig.TRIAL_SENTINELS_ROLE_ID + "> +**\n" +
                 "**`/mute`** - Mute a user **<@&" + BotConfig.SENIOR_SENTINELS_ROLE_ID + "> +**\n" +
                 "**`/unmute`** - Unmute a user **<@&" + BotConfig.SENIOR_SENTINELS_ROLE_ID + "> +**\n" +
-                "**`/timeout`** - Timeout a user **<@&" + BotConfig.TRIAL_SENTINELS_ROLE_ID + "> +**\n" +
-                "**`/untimeout`** - Remove timeout **<@&" + BotConfig.TRIAL_SENTINELS_ROLE_ID + "> +**\n" +
+                "**`/timeout`** - Timeout a user **<@&" + BotConfig.SENIOR_SENTINELS_ROLE_ID + "> +**\n" +
+                "**`/untimeout`** - Remove timeout **<@&" + BotConfig.SENIOR_SENTINELS_ROLE_ID + "> +**\n" +
                 "**`/kick`** - Kick a user **<@&" + BotConfig.SENIOR_SENTINELS_ROLE_ID + "> +**\n" +
                 "**`/ban`** - Ban a user **<@&" + BotConfig.ALPHA_BETAS_ROLE_ID + "> +**\n" +
                 "**`/unban`** - Unban a user **<@&" + BotConfig.ALPHA_BETAS_ROLE_ID + "> +**\n" +
@@ -225,6 +226,7 @@ public class HelpCommand implements Command {
                 "**`/bulkremovedemotion`** - Bulk remove from demotion list **<@&" + BotConfig.ALPHA_BETAS_ROLE_ID + "> +**\n" +
                 "**`/say`** - Send a message with formatting **<@&" + BotConfig.ALPHA_BETAS_ROLE_ID + "> +**\n" +
                 "**`/eventping`** - Send an event ping **<@&" + BotConfig.ALPHA_BETAS_ROLE_ID + "> +**\n" +
+                "**`/eventcountdowntoggle`** - Toggle weekly countdown **<@&" + BotConfig.ALPHA_BETAS_ROLE_ID + "> +**\n" +
                 "**`/signup-ping`** - Ping a role for signup **<@&" + BotConfig.ALPHA_BETAS_ROLE_ID + "> +**\n" +
                 "**`/steal`** - Steal an emoji from another server **<@&" + BotConfig.ALPHA_BETAS_ROLE_ID + "> +**\n" +
                 "**`/reactionrole`** - Setup and manage reaction roles **<@&" + BotConfig.ALPHA_BETAS_ROLE_ID + "> +**",

@@ -190,6 +190,7 @@ public class BotConfig {
     public static final String STAFF_STRIKES_CHANNEL_ID = "1478591786833281125";
     public static final String STAFF_STRIKE_LOG_CHANNEL_ID = "1478591744357568594";
     public static final String STAFF_VERIFY_CHANNEL_ID = "1197710900426190910";
+    public static final String STAFF_ANNOUNCEMENTS_CHANNEL_ID = "1478569094411190353";
     public static final String RULES_CHANNEL_ID = "790162355404144670";
     public static final String DRAFTING_THINGS_CHANNEL_ID = "1478569800954544270";
     public static final String EVENT_COUNTDOWNS_CHANNEL_ID = "1478566788177330349";

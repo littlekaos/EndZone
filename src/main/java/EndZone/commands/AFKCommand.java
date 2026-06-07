@@ -40,8 +40,8 @@ public class AFKCommand implements Command {
         
         net.dv8tion.jda.api.entities.Member targetMember = event.getMember();
         if (userOption != null) {
-            if (!PermissionUtils.isModerator(event.getMember(), ServiceManager.getConfig())) {
-                event.replyEmbeds(EmbedUtils.createErrorEmbed("You do not have permission to set other users' AFK status."))
+            if (!PermissionUtils.isAlphaBetaOrHigher(event.getMember(), ServiceManager.getConfig())) {
+                event.replyEmbeds(EmbedUtils.createErrorEmbed("You do not have permission to set other users' AFK status. Only Alpha Beta+ can do this."))
                         .setEphemeral(true).queue();
                 return;
             }

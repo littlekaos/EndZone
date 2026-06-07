@@ -164,6 +164,21 @@ public class MessageEventListener extends ListenerAdapter {
     private void handleAccessHelpMessage(MessageReceivedEvent event) {
         String promoText = ServiceManager.getConfig().getAccessHelpPromo();
         
+        // Track first message for automatic role assignment
+        String userId = event.getAuthor().getId();
+        String memberRoleId = ServiceManager.getConfig().getMemberRoleId();
+        
+        // Check if user already has the role
+        boolean hasRole = event.getMember() != null && 
+                         event.getMember().getRoles().stream().anyMatch(r -> r.getId().equals(memberRoleId));
+        
+        if (!hasRole) {
+            // Check if already tracking
+            if (ServiceManager.getDataService().getAccessHelpTimestamp(userId) == null) {
+                ServiceManager.getDataService().addAccessHelpTracking(userId, System.currentTimeMillis());
+            }
+        }
+
         if (lastAccessHelpMessageId != null) {
             event.getChannel().deleteMessageById(lastAccessHelpMessageId).queue(
                 success -> sendNewAccessHelp(event, promoText),
