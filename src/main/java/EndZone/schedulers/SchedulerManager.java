@@ -15,9 +15,11 @@ import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.TemporalAdjusters;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -30,6 +32,9 @@ public class SchedulerManager {
 
     public static void start(JDA jda) {
         scheduler = Executors.newScheduledThreadPool(4);
+
+        // Load persisted announcement times
+        loadPersistedTimes();
 
         // Auto-export scheduler
         startAutoExportScheduler();
@@ -48,9 +53,80 @@ public class SchedulerManager {
 
         // Weekly Announcement (Sunday @ 11 AM EST)
         startWeeklyAnnouncement(jda);
+
+        // Monday Announcement (Monday @ 11 AM EST)
+        startMondayAnnouncement(jda);
         
         // Access Help Automatic Role (30 minutes)
         startAccessHelpRoleScheduler(jda);
+    }
+
+    private static void loadPersistedTimes() {
+        ZoneId edtZone = ZoneId.of("America/New_York");
+        ZonedDateTime now = ZonedDateTime.now(edtZone);
+        String todayDate = now.toLocalDate().toString();
+
+        // 1. Staff Announcement
+        try {
+            String staffTime = ServiceManager.getDataService().getMetadata("last_staff_announcement_time", "");
+            if (!staffTime.isEmpty()) {
+                lastStaffAnnouncementTime = ZonedDateTime.parse(staffTime);
+            } else {
+                String lastStaffRun = ServiceManager.getDataService().getMetadata("last_staff_announcement_run", "");
+                if (!lastStaffRun.isEmpty()) {
+                    try {
+                        lastStaffAnnouncementTime = java.time.LocalDate.parse(lastStaffRun).atTime(10, 0).atZone(edtZone);
+                    } catch (Exception e) {
+                        if (todayDate.equals(lastStaffRun)) lastStaffAnnouncementTime = now;
+                    }
+                }
+            }
+
+            // Manual update: If still null, set to yesterday (June 7th) at 10 AM EST as requested
+            if (lastStaffAnnouncementTime == null) {
+                lastStaffAnnouncementTime = ZonedDateTime.of(2026, 6, 7, 10, 0, 0, 0, edtZone);
+            }
+        } catch (Exception e) {
+            System.err.println("[SCHEDULER] Failed to load staff announcement time: " + e.getMessage());
+        }
+
+        // 2. Event Countdown
+        try {
+            String eventTime = ServiceManager.getDataService().getMetadata("last_event_countdown_time", "");
+            if (!eventTime.isEmpty()) {
+                lastEventCountdownTime = ZonedDateTime.parse(eventTime);
+            } else {
+                String lastEventRun = ServiceManager.getDataService().getMetadata("last_event_countdown_run", "");
+                if (!lastEventRun.isEmpty()) {
+                    try {
+                        lastEventCountdownTime = java.time.LocalDate.parse(lastEventRun).atTime(12, 0).atZone(edtZone);
+                    } catch (Exception e) {
+                        if (todayDate.equals(lastEventRun)) lastEventCountdownTime = now;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("[SCHEDULER] Failed to load event countdown time: " + e.getMessage());
+        }
+
+        // 3. Weekly Announcement
+        try {
+            String weeklyTime = ServiceManager.getDataService().getMetadata("last_weekly_announcement_draft_time", "");
+            if (!weeklyTime.isEmpty()) {
+                lastWeeklyAnnouncementDraftTime = ZonedDateTime.parse(weeklyTime);
+            } else {
+                String lastWeeklyRun = ServiceManager.getDataService().getMetadata("last_weekly_announcement_run", "");
+                if (!lastWeeklyRun.isEmpty()) {
+                    try {
+                        lastWeeklyAnnouncementDraftTime = java.time.LocalDate.parse(lastWeeklyRun).atTime(11, 0).atZone(edtZone);
+                    } catch (Exception e) {
+                        if (todayDate.equals(lastWeeklyRun)) lastWeeklyAnnouncementDraftTime = now;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("[SCHEDULER] Failed to load weekly announcement time: " + e.getMessage());
+        }
     }
 
     private static String getReminderOrdinal(DayOfWeek day) {
@@ -240,10 +316,91 @@ public class SchedulerManager {
             }
 
             lastWeeklyAnnouncementDraftTime = now;
+            ServiceManager.getDataService().setMetadata("last_weekly_announcement_draft_time", lastWeeklyAnnouncementDraftTime.toString());
         } catch (Exception e) {
             System.err.println("[SCHEDULER] Error during weekly announcement: " + e.getMessage());
             e.printStackTrace();
         }
+    }
+
+    private static void startMondayAnnouncement(JDA jda) {
+        ZoneId estZone = ZoneId.of("America/New_York");
+        ZonedDateTime now = ZonedDateTime.now(estZone);
+        ZonedDateTime nextRun = now.with(TemporalAdjusters.nextOrSame(DayOfWeek.MONDAY))
+                .withHour(9).withMinute(0).withSecond(0).withNano(0);
+
+        if (now.isAfter(nextRun)) {
+            nextRun = nextRun.plusWeeks(1);
+        }
+
+        long initialDelay = Duration.between(now, nextRun).toSeconds();
+        long period = TimeUnit.DAYS.toSeconds(7);
+
+        scheduler.scheduleAtFixedRate(() -> performMondayAnnouncement(jda), initialDelay, period, TimeUnit.SECONDS);
+
+        System.out.println("[SCHEDULER] Monday Announcement scheduled (Next run: " + nextRun + ")");
+    }
+
+    private static void performMondayAnnouncement(JDA jda) {
+        try {
+            ZoneId estZone = ZoneId.of("America/New_York");
+            ZonedDateTime now = ZonedDateTime.now(estZone);
+            
+            // Fire ONLY on Mondays
+            if (now.getDayOfWeek() != DayOfWeek.MONDAY) {
+                return;
+            }
+
+            String todayDate = now.toLocalDate().toString();
+            String lastRun = ServiceManager.getDataService().getMetadata("last_monday_announcement_run", "");
+
+            if (todayDate.equals(lastRun)) {
+                System.out.println("[SCHEDULER] Monday announcement already sent today (" + todayDate + "), skipping.");
+                return;
+            }
+
+            System.out.println("[SCHEDULER] Attempting to send Monday announcement...");
+            // Use .next(SUNDAY) to ensure we always point to the upcoming Sunday
+            ZonedDateTime nextSunday = now.with(TemporalAdjusters.next(DayOfWeek.SUNDAY));
+            
+            String messageContent = buildMondayAnnouncementMessage(nextSunday);
+
+            List<String> channelIds = Arrays.asList(
+                    BotConfig.EVENT_ROSTERS_CHANNEL_ID,
+                    BotConfig.STAFF_LEAVE_OF_ABSENCE_CHANNEL_ID
+            );
+
+            for (String channelId : channelIds) {
+                GuildMessageChannel channel = jda.getChannelById(GuildMessageChannel.class, channelId);
+                if (channel != null) {
+                    channel.sendMessage(messageContent).queue(
+                            success -> System.out.println("[SCHEDULER] Monday announcement sent successfully to " + channel.getName()),
+                            error -> System.err.println("[SCHEDULER] Failed to send Monday announcement message to " + channelId + ": " + error.getMessage())
+                    );
+                } else {
+                    System.err.println("[SCHEDULER] Could not find channel with ID: " + channelId);
+                }
+            }
+
+            ServiceManager.getDataService().setMetadata("last_monday_announcement_run", todayDate);
+            lastWeeklyAnnouncementDraftTime = now;
+            ServiceManager.getDataService().setMetadata("last_weekly_announcement_draft_time", lastWeeklyAnnouncementDraftTime.toString());
+        } catch (Exception e) {
+            System.err.println("[SCHEDULER] Error during Monday announcement: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    private static String buildMondayAnnouncementMessage(ZonedDateTime eventDate) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MMMM d, yyyy", Locale.ENGLISH);
+        String dateStr = eventDate.format(formatter);
+        return "``` ```\n" +
+                "\n" +
+                "## " + BotConfig.EZ_EMOJI_MENTION + " **EndZone Event - " + dateStr + "**\n" +
+                "\n" +
+                "\u200B\n" +
+                "\n" +
+                "``` ```";
     }
 
     private static void startWeeklyWinnersReset(JDA jda) {
@@ -275,6 +432,10 @@ public class SchedulerManager {
         String lastRun = ServiceManager.getDataService().getMetadata("last_staff_announcement_run", "");
 
         if (now.isAfter(nextRun) || todayDate.equals(lastRun)) {
+            nextRun = nextRun.plusDays(1);
+        }
+
+        if (nextRun.getDayOfWeek() == DayOfWeek.MONDAY) {
             nextRun = nextRun.plusDays(1);
         }
 
@@ -312,6 +473,7 @@ public class SchedulerManager {
                 channel.sendMessage(buildStaffMessage(timestamp, ordinal)).queue(success -> {
                     lastStaffAnnouncementTime = ZonedDateTime.now(edtZone);
                     ServiceManager.getDataService().setMetadata("last_staff_announcement_run", todayDate);
+                    ServiceManager.getDataService().setMetadata("last_staff_announcement_time", lastStaffAnnouncementTime.toString());
                 });
             }
         } catch (Exception e) {
@@ -329,7 +491,7 @@ public class SchedulerManager {
         String todayDate = now.toLocalDate().toString();
         String lastRun = ServiceManager.getDataService().getMetadata("last_event_countdown_run", "");
 
-        if (now.isAfter(nextRun.plusHours(2)) || todayDate.equals(lastRun)) {
+        if (now.isAfter(nextRun) || todayDate.equals(lastRun)) {
             nextRun = nextRun.plusWeeks(1);
         }
 
@@ -362,6 +524,7 @@ public class SchedulerManager {
             if (channel != null) {
                 channel.sendMessage(buildEventMessage()).queue(message -> {
                     lastEventCountdownTime = ZonedDateTime.now(edtZone);
+                    ServiceManager.getDataService().setMetadata("last_event_countdown_time", lastEventCountdownTime.toString());
                     Emoji emoji = Emoji.fromCustom(BotConfig.EZ_EMOJI_NAME, Long.parseLong(BotConfig.EZ_EMOJI_ID), false);
                     message.addReaction(emoji).queue();
 

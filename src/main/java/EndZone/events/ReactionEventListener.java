@@ -178,6 +178,7 @@ public class ReactionEventListener extends ListenerAdapter {
 
     @Override
     public void onMessageReactionRemove(MessageReactionRemoveEvent event) {
+        if (event.getUser() != null && event.getUser().isBot()) return;
         if (event.getChannel().getId().equals(BotConfig.STAFF_VERIFY_CHANNEL_ID)) {
             event.getGuild().retrieveMemberById(event.getUserId()).queue(
                     member -> removeStreamerHostRole(member),

@@ -207,6 +207,7 @@ public class ServerLogEventListener extends ListenerAdapter {
     @Override
     public void onGuildInviteCreate(GuildInviteCreateEvent event) {
         User inviter = event.getInvite().getInviter();
+        if (inviter != null && inviter.isBot()) return;
         EmbedBuilder embed = new EmbedBuilder()
                 .setTitle("Invite Created")
                 .setColor(Color.GREEN)
@@ -223,6 +224,7 @@ public class ServerLogEventListener extends ListenerAdapter {
     @Override
     public void onGuildBan(GuildBanEvent event) {
         User user = event.getUser();
+        if (user.isBot()) return;
         bot.getDataService().logGeneral(event.getGuild().getId(), user.getId(), "GUILD_BAN", "Username: " + user.getName());
         EmbedBuilder embed = new EmbedBuilder()
                 .setTitle("User Banned")
@@ -240,6 +242,7 @@ public class ServerLogEventListener extends ListenerAdapter {
     @Override
     public void onGuildUnban(GuildUnbanEvent event) {
         User user = event.getUser();
+        if (user.isBot()) return;
         bot.getDataService().logGeneral(event.getGuild().getId(), user.getId(), "GUILD_UNBAN", "Username: " + user.getName());
         EmbedBuilder embed = new EmbedBuilder()
                 .setTitle("User Unbanned")
@@ -258,6 +261,7 @@ public class ServerLogEventListener extends ListenerAdapter {
     @Override
     public void onGuildMemberJoin(GuildMemberJoinEvent event) {
         User user = event.getUser();
+        if (user.isBot()) return;
         String accountCreationTime = user.getTimeCreated().atZoneSameInstant(EST_ZONE).format(FORMATTER);
         bot.getDataService().logGeneral(event.getGuild().getId(), user.getId(), "MEMBER_JOIN", "Username: " + user.getName() + ", Account Created: " + accountCreationTime);
         EmbedBuilder embed = new EmbedBuilder()
@@ -276,6 +280,7 @@ public class ServerLogEventListener extends ListenerAdapter {
     @Override
     public void onGuildMemberRemove(GuildMemberRemoveEvent event) {
         User user = event.getUser();
+        if (user.isBot()) return;
         bot.getDataService().logGeneral(event.getGuild().getId(), user.getId(), "MEMBER_LEAVE", "Username: " + user.getName());
         EmbedBuilder embed = new EmbedBuilder()
                 .setTitle("Member Left")
@@ -292,6 +297,7 @@ public class ServerLogEventListener extends ListenerAdapter {
     @Override
     public void onGuildMemberUpdateNickname(GuildMemberUpdateNicknameEvent event) {
         User user = event.getUser();
+        if (user.isBot()) return;
         bot.getDataService().logGeneral(event.getGuild().getId(), user.getId(), "NICKNAME_UPDATE", "Old: " + event.getOldNickname() + ", New: " + event.getNewNickname());
         EmbedBuilder embed = new EmbedBuilder()
                 .setTitle("Nickname Updated")
@@ -310,6 +316,7 @@ public class ServerLogEventListener extends ListenerAdapter {
     @Override
     public void onGuildMemberUpdateTimeOut(GuildMemberUpdateTimeOutEvent event) {
         User user = event.getUser();
+        if (user.isBot()) return;
         bot.getDataService().logGeneral(event.getGuild().getId(), user.getId(), "TIMEOUT_UPDATE",
                 "New Timeout End: " + (event.getNewTimeOutEnd() != null ? event.getNewTimeOutEnd().toString() : "None"));
         EmbedBuilder embed = new EmbedBuilder()
@@ -328,6 +335,7 @@ public class ServerLogEventListener extends ListenerAdapter {
     @Override
     public void onGuildMemberUpdateAvatar(GuildMemberUpdateAvatarEvent event) {
         User user = event.getUser();
+        if (user.isBot()) return;
         EmbedBuilder embed = new EmbedBuilder()
                 .setTitle("Member Avatar Updated")
                 .setColor(Color.ORANGE)
@@ -383,6 +391,11 @@ public class ServerLogEventListener extends ListenerAdapter {
             }
         }
         
+        if (userId == null) return;
+        
+        User author = bot.getUserCache().retrieveUser(userId);
+        if (author != null && author.isBot()) return;
+        
         bot.getDataService().logMessage(event.getGuild().getId(), event.getChannel().getId(), messageId, userId, content, "DELETED");
         
         String[] info = bot.getUserCache().getUserDisplayInfo(userId);
@@ -404,6 +417,7 @@ public class ServerLogEventListener extends ListenerAdapter {
     @Override
     public void onMessageBulkDelete(MessageBulkDeleteEvent event) {
         if (event.getChannel().getId().equals("790177733207785472")) return;
+        int loggedCount = 0;
         for (String messageId : event.getMessageIds()) {
             String content = bot.getMessageCache().getMessageContent(messageId);
             String userId = bot.getMessageCache().getMessageAuthorId(messageId);
@@ -416,7 +430,17 @@ public class ServerLogEventListener extends ListenerAdapter {
                 }
             }
             
+            if (userId == null) continue;
+            User author = bot.getUserCache().retrieveUser(userId);
+            if (author != null && author.isBot()) continue;
+            
             bot.getDataService().logMessage(event.getGuild().getId(), event.getChannel().getId(), messageId, userId, content, "BULK_DELETED");
+            loggedCount++;
+        }
+
+        if (loggedCount == 0) {
+            bot.getMessageCache().removeMessages(event.getMessageIds());
+            return;
         }
 
         EmbedBuilder embed = new EmbedBuilder()
@@ -424,7 +448,7 @@ public class ServerLogEventListener extends ListenerAdapter {
                 .setColor(Color.RED)
                 .setDescription("Multiple messages have been deleted in bulk.\n")
                 .addField("Channel", event.getChannel().getAsMention(), false)
-                .addField("Messages Deleted", String.valueOf(event.getMessageIds().size()), false)
+                .addField("Messages Logged", String.valueOf(loggedCount), false)
                 .setTimestamp(Instant.now());
         bot.getLoggingService().logAction(event.getGuild(), "endzone-logs", embed.build());
         bot.getMessageCache().removeMessages(event.getMessageIds());
@@ -433,6 +457,7 @@ public class ServerLogEventListener extends ListenerAdapter {
     @Override
     public void onMessageReactionAdd(MessageReactionAddEvent event) {
         if (event.getChannel().getId().equals("790177733207785472")) return;
+        if (event.getUser() != null && event.getUser().isBot()) return;
         if (event.getUser() != null) bot.getUserCache().cacheUser(event.getUser());
         String emojiDisplay = event.getReaction().getEmoji().getAsReactionCode();
         String[] info = bot.getUserCache().getUserDisplayInfo(event.getUserId());
@@ -455,6 +480,7 @@ public class ServerLogEventListener extends ListenerAdapter {
     @Override
     public void onMessageReactionRemove(MessageReactionRemoveEvent event) {
         if (event.getChannel().getId().equals("790177733207785472")) return;
+        if (event.getUser() != null && event.getUser().isBot()) return;
         if (event.getUser() != null) bot.getUserCache().cacheUser(event.getUser());
         String emojiDisplay = event.getReaction().getEmoji().getAsReactionCode();
         String[] info = bot.getUserCache().getUserDisplayInfo(event.getUserId());
@@ -574,6 +600,7 @@ public class ServerLogEventListener extends ListenerAdapter {
 
     @Override
     public void onUserUpdateName(UserUpdateNameEvent event) {
+        if (event.getUser().isBot()) return;
         bot.getUserCache().cacheUser(event.getUser());
         if (event.getUser().getMutualGuilds().isEmpty()) return;
         User user = event.getUser();
@@ -597,6 +624,7 @@ public class ServerLogEventListener extends ListenerAdapter {
 
     @Override
     public void onUserUpdateAvatar(UserUpdateAvatarEvent event) {
+        if (event.getUser().isBot()) return;
         bot.getUserCache().cacheUser(event.getUser());
         if (event.getUser().getMutualGuilds().isEmpty()) return;
         User user = event.getUser();
@@ -623,6 +651,7 @@ public class ServerLogEventListener extends ListenerAdapter {
 
     @Override
     public void onGuildVoiceUpdate(GuildVoiceUpdateEvent event) {
+        if (event.getMember().getUser().isBot()) return;
         bot.getUserCache().cacheUser(event.getMember().getUser());
         User user = event.getMember().getUser();
 

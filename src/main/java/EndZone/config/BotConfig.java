@@ -201,6 +201,8 @@ public class BotConfig {
     public static final String RULES_CHANNEL_ID = "790162355404144670";
     public static final String DRAFTING_THINGS_CHANNEL_ID = "1478569800954544270";
     public static final String EVENT_COUNTDOWNS_CHANNEL_ID = "1478566788177330349";
+    public static final String EVENT_ROSTERS_CHANNEL_ID = "1478566857584808147";
+    public static final String STAFF_LEAVE_OF_ABSENCE_CHANNEL_ID = "1479282088095121479";
     public static final String EZ_PERM_BAN_LIST_CHANNEL_ID = "1099474903499026493";
     public static final String EZ_UNBAN_LIST_CHANNEL_ID = "1095756470508855306";
 

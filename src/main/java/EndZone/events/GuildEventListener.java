@@ -34,6 +34,7 @@ public class GuildEventListener extends ListenerAdapter {
 
     @Override
     public void onGuildMemberJoin(GuildMemberJoinEvent event) {
+        if (event.getUser().isBot()) return;
         System.out.println("New member joined: " + event.getUser().getName());
         ServiceManager.getDataService().cacheUser(event.getUser());
 

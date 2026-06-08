@@ -20,6 +20,7 @@ public class VoiceEventListener extends ListenerAdapter {
 
     @Override
     public void onGuildVoiceUpdate(@NotNull GuildVoiceUpdateEvent event) {
+        if (event.getMember().getUser().isBot()) return;
         // Handle voice channel join
         if (event.getChannelJoined() != null) {
             handleVoiceJoin(event);
