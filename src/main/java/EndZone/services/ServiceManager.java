@@ -27,6 +27,8 @@ public class ServiceManager {
     private static StrikeScannerService strikeScannerService;
     private static AFKService afkService;
     private static BanSyncService banSyncService;
+    private static ModmailService modmailService;
+    private static ModmailLogServer modmailLogServer;
 
     public static void setJda(JDA jdaInstance) { jda = jdaInstance; }
     public static void setConfig(BotConfig configInstance) { config = configInstance; }
@@ -50,6 +52,8 @@ public class ServiceManager {
     public static void setStrikeScannerService(StrikeScannerService service) { strikeScannerService = service; }
     public static void setAFKService(AFKService service) { afkService = service; }
     public static void setBanSyncService(BanSyncService service) { banSyncService = service; }
+    public static void setModmailService(ModmailService service) { modmailService = service; }
+    public static void setModmailLogServer(ModmailLogServer server) { modmailLogServer = server; }
 
     public static JDA getJda() { return jda; }
     public static BotConfig getConfig() { return config; }
@@ -73,4 +77,6 @@ public class ServiceManager {
     public static StrikeScannerService getStrikeScannerService() { return strikeScannerService; }
     public static AFKService getAFKService() { return afkService; }
     public static BanSyncService getBanSyncService() { return banSyncService; }
+    public static ModmailService getModmailService() { return modmailService; }
+    public static ModmailLogServer getModmailLogServer() { return modmailLogServer; }
 }

@@ -35,6 +35,10 @@ public class EndZoneForm {
         }
     }
 
+    public static boolean hasActiveForm(String userId) {
+        return formStates.containsKey(userId);
+    }
+
     public static FormState getOrCreateFormState(User user) {
         return formStates.computeIfAbsent(user.getId(), k -> {
             FormState dbState = DatabaseService.loadFormState(user.getId(), user);

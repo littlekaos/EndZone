@@ -51,7 +51,7 @@ public class CommandEventListener extends ListenerAdapter {
         registerCommand(new UnrestrictCommand(bot));
         registerCommand(new RestrictSetupCommand(bot));
         registerCommand(new VoiceCommand(bot));
-        registerCommand(new ClearDMsCommand(bot));
+        registerCommand(new ClearDMsCommand());
         registerCommand(new SayCommand(bot));
         registerCommand(new EventPingCommand(bot));
         registerCommand(new StealCommand(bot));
@@ -61,6 +61,10 @@ public class CommandEventListener extends ListenerAdapter {
         registerCommand(new SchedulerCommand(bot));
         registerCommand(new LockdownCommand(bot));
         registerCommand(new SyncWinnersCommand());
+        registerCommand(new CloseCommand());
+        registerCommand(new ReplyCommand());
+        registerCommand(new TicketHistoryCommand());
+        registerCommand(new ClearLogsCommand());
     }
 
     private void registerCommand(Command command) {
@@ -96,7 +100,7 @@ public class CommandEventListener extends ListenerAdapter {
             allCommands.addAll(new UnrestrictCommand(bot).getCommandDataList());
             allCommands.addAll(new RestrictSetupCommand(bot).getCommandDataList());
             allCommands.addAll(new VoiceCommand(bot).getCommandDataList());
-            allCommands.addAll(new ClearDMsCommand(bot).getCommandDataList());
+            allCommands.addAll(new ClearDMsCommand().getCommandDataList());
             allCommands.addAll(new SayCommand(bot).getCommandDataList());
             allCommands.addAll(new EventPingCommand(bot).getCommandDataList());
             allCommands.addAll(new StealCommand(bot).getCommandDataList());
@@ -106,6 +110,10 @@ public class CommandEventListener extends ListenerAdapter {
             allCommands.addAll(new SchedulerCommand(bot).getCommandDataList());
             allCommands.addAll(new LockdownCommand(bot).getCommandDataList());
             allCommands.addAll(new SyncWinnersCommand().getCommandDataList());
+            allCommands.addAll(new CloseCommand().getCommandDataList());
+            allCommands.addAll(new ReplyCommand().getCommandDataList());
+            allCommands.addAll(new TicketHistoryCommand().getCommandDataList());
+            allCommands.addAll(new ClearLogsCommand().getCommandDataList());
             
             // Clear global commands to avoid duplicates
             jda.updateCommands().queue();

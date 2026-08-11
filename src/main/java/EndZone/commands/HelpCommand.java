@@ -36,22 +36,25 @@ public class HelpCommand implements Command {
                     : "Welcome to the EndZone Help Menu. Select a category below to view specific commands.");
 
         List<Button> buttons = new ArrayList<>();
+        List<Button> row2 = new ArrayList<>();
         if (isCourtZone) {
             buttons.add(Button.primary("help_court_general", "📌 General"));
             buttons.add(Button.primary("help_court_mod", "🔨 Moderation"));
             buttons.add(Button.primary("help_court_strike", "⚖️ Strike/Appeal"));
             buttons.add(Button.primary("help_court_voice", "🎙️ Voice"));
             buttons.add(Button.primary("help_court_admin", "⚙️ Admin"));
+            row2.add(Button.primary("help_court_modmail", "📬 Modmail"));
         } else {
             buttons.add(Button.primary("help_gen_general", "📌 General"));
             buttons.add(Button.primary("help_gen_mod", "🔨 Moderation"));
             buttons.add(Button.primary("help_gen_strike", "⛔ Strike/Appeal"));
             buttons.add(Button.primary("help_gen_voice", "🎙️ Voice"));
             buttons.add(Button.primary("help_gen_admin", "⚙️ Admin"));
+            row2.add(Button.primary("help_gen_modmail", "📬 Modmail"));
         }
 
         event.replyEmbeds(embed.build())
-                .addComponents(ActionRow.of(buttons))
+                .addComponents(ActionRow.of(buttons), ActionRow.of(row2))
                 .setEphemeral(true)
                 .queue();
     }
@@ -149,6 +152,24 @@ public class HelpCommand implements Command {
                 "**`/backupstrikes`** - Backup strike database **<@&" + BotConfig.COURT_THE_DISTRICT_ATTORNIES_EZ_ROLE_ID + "> +**\n" +
                 "**`/rolerestoration`** - Manage role restoration **<@&" + BotConfig.COURT_THE_DISTRICT_ATTORNIES_EZ_ROLE_ID + "> +**\n" +
                 "**`/void-checker`** - Analyze reactions **<@&" + BotConfig.COURT_THE_DISTRICT_ATTORNIES_EZ_ROLE_ID + "> +**",
+                false
+        );
+    }
+
+    public static void addCourtZoneModmail(EmbedBuilder embed) {
+        embed.addField(
+                "📬 How modmail works",
+                "DM the bot to open a ticket, then pick a category (**Unban Request** or **General Concern**).\n" +
+                "Staff handle tickets in CourtZone Ticket Zone. Gem Event is coming soon.",
+                false
+        );
+        embed.addField(
+                "📬 Modmail Commands",
+                "**`/reply message:`** - Send a staff reply to the user in an open ticket **Staff**\n" +
+                "**`/close [time] [cancel]`** - Close now, schedule a timed close, or cancel a timed close\n" +
+                "**`/logs user:`** - View past ticket history with web log links **Staff**\n" +
+                "**`/clear-logs [user]`** - Delete stored ticket history **Staff**\n" +
+                "**`/cleardms`** - Delete the bot's messages in your DM with it",
                 false
         );
     }
@@ -260,6 +281,24 @@ public class HelpCommand implements Command {
                 "**`/signup-ping`** - Ping a role for signup **<@&" + BotConfig.ALPHA_BETAS_ROLE_ID + "> +**\n" +
                 "**`/steal`** - Steal an emoji from another server **<@&" + BotConfig.ALPHA_BETAS_ROLE_ID + "> +**\n" +
                 "**`/reactionrole`** - Setup and manage reaction roles **<@&" + BotConfig.ALPHA_BETAS_ROLE_ID + "> +**",
+                false
+        );
+    }
+
+    public static void addGeneralModmail(EmbedBuilder embed) {
+        embed.addField(
+                "📬 How modmail works",
+                "DM the bot to open a ticket, then pick a category (**Unban Request** or **General Concern**).\n" +
+                "Tickets are created in CourtZone Ticket Zone. Gem Event is coming soon.",
+                false
+        );
+        embed.addField(
+                "📬 Modmail Commands",
+                "**`/reply message:`** - Send a staff reply to the user in an open ticket **Staff**\n" +
+                "**`/close [time] [cancel]`** - Close now, schedule a timed close, or cancel a timed close\n" +
+                "**`/logs user:`** - View past ticket history with web log links **Staff**\n" +
+                "**`/clear-logs [user]`** - Delete stored ticket history **Staff**\n" +
+                "**`/cleardms`** - Delete the bot's messages in your DM with it",
                 false
         );
     }

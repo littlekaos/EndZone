@@ -61,6 +61,7 @@ public class EndZone {
         ServiceManager.setStrikeScannerService(new StrikeScannerService(ServiceManager.getStrikeService()));
         ServiceManager.setAFKService(new AFKService());
         ServiceManager.setBanSyncService(new BanSyncService(ServiceManager.getDataService()));
+        ServiceManager.setModmailService(new ModmailService());
         ServiceManager.setUserCache(new UserCache());
         ServiceManager.setMessageCache(new MessageCache());
 
@@ -71,6 +72,10 @@ public class EndZone {
         ServiceManager.getAppealService().setRoleRestorationService(ServiceManager.getRoleRestorationService());
         ServiceManager.getDemotionService().setRoleRestorationService(ServiceManager.getRoleRestorationService());
         ServiceManager.getDataService().setUserCache(ServiceManager.getUserCache());
+
+        ModmailLogServer logServer = new ModmailLogServer(config.getModmailLogsPort());
+        ServiceManager.setModmailLogServer(logServer);
+        logServer.start();
 
         String token = config.getToken();
         if (token == null || token.isEmpty()) {
@@ -108,6 +113,7 @@ public class EndZone {
                         new GuildEventListener(this),
                         new MessageEventListener(this),
                         new TicketEventListener(this),
+                        new ModmailListener(),
                         new VoiceEventListener(ServiceManager.getVoiceChannelManager(), ServiceManager.getEventsSetupManager()),
                         new ServerLogEventListener(this),
                         new ReactionRoleListener(),
@@ -142,6 +148,9 @@ public class EndZone {
             logger.info("Bot shutting down...");
             EndZoneForm.exportAllFormStatesToDatabase();
             SchedulerManager.shutdown();
+            if (ServiceManager.getModmailLogServer() != null) {
+                ServiceManager.getModmailLogServer().stop();
+            }
             DatabaseService.shutdown();
             jda.shutdown();
             logger.info("Bot shutdown complete");

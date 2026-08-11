@@ -38,6 +38,7 @@ public class DatabaseService {
             createTables();
             migrateAfkTable();
             migrateModerationAnalyticsTable();
+            migrateModmailSessionsTable();
             migrateZreTablesToEz();
             dropLegacyTables();
             System.out.println("[DATABASE] Database connection pool initialized");
@@ -72,6 +73,22 @@ public class DatabaseService {
             }
         } catch (SQLException e) {
             System.err.println("[ERROR] Failed to migrate 'ez_afk' table: " + e.getMessage());
+        }
+    }
+
+    private static void migrateModmailSessionsTable() {
+        try (Connection conn = dataSource.getConnection()) {
+            DatabaseMetaData meta = conn.getMetaData();
+            try (ResultSet rs = meta.getColumns(null, null, "ez_modmail_sessions", "category")) {
+                if (!rs.next()) {
+                    System.out.println("[DATABASE] Adding missing column 'category' to 'ez_modmail_sessions' table");
+                    try (Statement stmt = conn.createStatement()) {
+                        stmt.execute("ALTER TABLE ez_modmail_sessions ADD COLUMN category VARCHAR(64)");
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("[ERROR] Failed to migrate 'ez_modmail_sessions' table: " + e.getMessage());
         }
     }
 
@@ -515,6 +532,41 @@ public class DatabaseService {
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """);
+
+            // ez_modmail_sessions
+            stmt.execute("""
+                CREATE TABLE IF NOT EXISTS ez_modmail_sessions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id VARCHAR(32) NOT NULL,
+                    guild_id VARCHAR(32) NOT NULL,
+                    channel_id VARCHAR(32) NOT NULL UNIQUE,
+                    kind VARCHAR(16) NOT NULL,
+                    status VARCHAR(16) NOT NULL DEFAULT 'OPEN',
+                    created_at BIGINT NOT NULL,
+                    closed_at BIGINT,
+                    category VARCHAR(64)
+                )
+            """);
+            stmt.execute("CREATE INDEX IF NOT EXISTS idx_ez_modmail_user_status ON ez_modmail_sessions(user_id, status)");
+            stmt.execute("CREATE INDEX IF NOT EXISTS idx_ez_modmail_channel ON ez_modmail_sessions(channel_id)");
+
+            // ez_modmail_logs — web-hosted ticket transcripts
+            stmt.execute("""
+                CREATE TABLE IF NOT EXISTS ez_modmail_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    log_uuid VARCHAR(36) NOT NULL UNIQUE,
+                    session_id INTEGER NOT NULL,
+                    user_id VARCHAR(32) NOT NULL,
+                    closed_by_id VARCHAR(32),
+                    closed_by_name VARCHAR(128),
+                    category VARCHAR(64),
+                    transcript TEXT NOT NULL,
+                    created_at BIGINT NOT NULL,
+                    closed_at BIGINT NOT NULL
+                )
+            """);
+            stmt.execute("CREATE INDEX IF NOT EXISTS idx_ez_modmail_logs_user ON ez_modmail_logs(user_id, closed_at DESC)");
+            stmt.execute("CREATE INDEX IF NOT EXISTS idx_ez_modmail_logs_uuid ON ez_modmail_logs(log_uuid)");
 
             System.out.println("[DATABASE] All tables created or verified in unified database");
             

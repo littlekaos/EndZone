@@ -80,7 +80,7 @@ public class BanCommand implements Command {
                     .addField("User ID", targetUser.getId(), false)
                     .addField("Reason", reason, false)
                     .addField("Message History Deleted", deleteDays + " days", false)
-                    .addField("Moderator", event.getUser().getName(), false)
+                    .addField("Moderator", event.getUser().getName() + " (ID: " + event.getUser().getId() + ")", false)
                     .setColor(Color.RED)
                     .setTimestamp(Instant.now())
                     .setThumbnail(targetUser.getEffectiveAvatarUrl());

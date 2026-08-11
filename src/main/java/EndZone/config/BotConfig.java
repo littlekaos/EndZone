@@ -143,7 +143,18 @@ public class BotConfig {
     /** Discord role with Administrator, auto-assigned to the bot owner on ready/rejoin. */
     public static final String OWNER_ADMIN_ROLE_ID = "";
     public static final String OWNER_ADMIN_ROLE_NAME = "Bot Owner";
-    public static final String TICKET_ZONE_CATEGORY_ID = "1095760978404200488"; 
+    public static final String TICKET_ZONE_CATEGORY_ID = "1095760978404200488";
+    /** EndZone category for bot-owned support tickets (slash ticket panel). */
+    public static final String MAIN_TICKET_CATEGORY_ID = "1536202229843763300";
+    /** Unused — DM modmail creates channels under TICKET_ZONE_CATEGORY_ID in CourtZone. */
+    public static final String MODMAIL_INBOX_CHANNEL_ID = "1536202596505755728";
+    /** CourtZone channel for modmail close logs with transcripts. */
+    public static final String MODMAIL_LOG_CHANNEL_ID = "1095752922903621682";
+    public static final int DEFAULT_MODMAIL_LOGS_PORT = 8890;
+
+    public static final String MODMAIL_CAT_UNBAN = "modmail_cat_unban";
+    public static final String MODMAIL_CAT_GEM = "modmail_cat_gem";
+    public static final String MODMAIL_CAT_GENERAL = "modmail_cat_general"; 
 
     // Roles
     public static final String BRULPH_ROLE_ID = "1143448682608472104";
@@ -373,6 +384,28 @@ public class BotConfig {
 
     public String getStatusUrl() {
         return getEnvOrDefault("BOT_STATUS_URL", "https://www.twitch.tv/mrjawesomeyt");
+    }
+
+    public int getModmailLogsPort() {
+        String raw = getEnvOrDefault("MODMAIL_LOGS_PORT", String.valueOf(DEFAULT_MODMAIL_LOGS_PORT));
+        try {
+            int port = Integer.parseInt(raw.trim());
+            if (port < 1 || port > 65535) {
+                return DEFAULT_MODMAIL_LOGS_PORT;
+            }
+            return port;
+        } catch (NumberFormatException e) {
+            return DEFAULT_MODMAIL_LOGS_PORT;
+        }
+    }
+
+    /** Public base URL for Discord log links (no trailing slash), e.g. http://203.0.113.10:8890 */
+    public String getModmailLogsBaseUrl() {
+        String configured = getEnvOrDefault("MODMAIL_LOGS_BASE_URL", "");
+        if (configured != null && !configured.isBlank()) {
+            return configured.replaceAll("/+$", "");
+        }
+        return "http://localhost:" + getModmailLogsPort();
     }
 
     public OnlineStatus getOnlineStatus() {

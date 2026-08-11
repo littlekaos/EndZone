@@ -77,7 +77,7 @@ public class UnbanCommand implements Command {
                         .setDescription(String.format("%s (%s) has been unbanned\n", bannedUser.getAsMention(), bannedUser.getName()))
                         .addField("User ID", userId, false)
                         .addField("Reason", reason, false)
-                        .addField("Moderator", event.getUser().getName(), false)
+                        .addField("Moderator", event.getUser().getName() + " (ID: " + event.getUser().getId() + ")", false)
                         .setColor(Color.GREEN)
                         .setTimestamp(Instant.now())
                         .setThumbnail(bannedUser.getEffectiveAvatarUrl());

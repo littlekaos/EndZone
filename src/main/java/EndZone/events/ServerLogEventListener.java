@@ -345,6 +345,7 @@ public class ServerLogEventListener extends ListenerAdapter {
 
     @Override
     public void onMessageUpdate(MessageUpdateEvent event) {
+        if (!event.isFromGuild()) return;
         if (event.getChannel().getId().equals("790177733207785472")) return;
         User author = event.getAuthor();
         if (author.isBot()) return;
@@ -371,6 +372,7 @@ public class ServerLogEventListener extends ListenerAdapter {
 
     @Override
     public void onMessageDelete(MessageDeleteEvent event) {
+        if (!event.isFromGuild()) return;
         if (event.getChannel().getId().equals("790177733207785472")) return;
         String messageId = event.getMessageId();
         String content = bot.getMessageCache().getMessageContent(messageId);

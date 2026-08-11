@@ -248,18 +248,21 @@ public class ButtonEventListener extends ListenerAdapter {
         EmbedBuilder embed = HelpCommand.createBaseEmbed(isCourtZone);
         
         List<Button> buttons = new ArrayList<>();
+        List<Button> row2 = new ArrayList<>();
         if (isCourtZone) {
             buttons.add(Button.primary("help_court_general", "📌 General"));
             buttons.add(Button.primary("help_court_mod", "🔨 Moderation"));
             buttons.add(Button.primary("help_court_strike", "⚖️ Strike/Appeal"));
             buttons.add(Button.primary("help_court_voice", "🎙️ Voice"));
             buttons.add(Button.primary("help_court_admin", "⚙️ Admin"));
+            row2.add(Button.primary("help_court_modmail", "📬 Modmail"));
         } else {
             buttons.add(Button.primary("help_gen_general", "📌 General"));
             buttons.add(Button.primary("help_gen_mod", "🔨 Moderation"));
             buttons.add(Button.primary("help_gen_strike", "⛔ Strike/Appeal"));
             buttons.add(Button.primary("help_gen_voice", "🎙️ Voice"));
             buttons.add(Button.primary("help_gen_admin", "⚙️ Admin"));
+            row2.add(Button.primary("help_gen_modmail", "📬 Modmail"));
         }
 
         switch (buttonId) {
@@ -268,19 +271,21 @@ public class ButtonEventListener extends ListenerAdapter {
             case "help_court_strike" -> HelpCommand.addCourtZoneStrike(embed);
             case "help_court_voice" -> HelpCommand.addCourtZoneVoice(embed);
             case "help_court_admin" -> HelpCommand.addCourtZoneAdmin(embed);
+            case "help_court_modmail" -> HelpCommand.addCourtZoneModmail(embed);
             
             case "help_gen_general" -> HelpCommand.addGeneralGeneral(embed);
             case "help_gen_mod" -> HelpCommand.addGeneralMod(embed);
             case "help_gen_strike" -> HelpCommand.addGeneralStrike(embed);
             case "help_gen_voice" -> HelpCommand.addGeneralVoice(embed);
             case "help_gen_admin" -> HelpCommand.addGeneralAdmin(embed);
+            case "help_gen_modmail" -> HelpCommand.addGeneralModmail(embed);
         }
 
         HelpCommand.addNeedHelpSection(embed);
         embed.setFooter("Use the buttons below to switch categories.");
 
         event.editMessageEmbeds(embed.build())
-                .setComponents(ActionRow.of(buttons))
+                .setComponents(ActionRow.of(buttons), ActionRow.of(row2))
                 .queue();
     }
 }
