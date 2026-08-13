@@ -4,6 +4,7 @@ import EndZone.config.BotConfig;
 import EndZone.database.DatabaseService;
 import EndZone.models.ModmailLog;
 import EndZone.models.ModmailSession;
+import EndZone.util.UnbanAppealMessage;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
@@ -188,14 +189,28 @@ public class ModmailService {
                             onError.accept("Failed to save modmail session.");
                             return;
                         }
+
+                        int previous = countLogsByUserId(user.getId());
+                        if (previous > 0) {
+                            channel.sendMessage("This user has **" + previous
+                                    + "** previous modmail thread"
+                                    + (previous == 1 ? "" : "s")
+                                    + ". Use `/logs` to see them.").queue();
+                        }
+
                         for (String line : messagesToRelay) {
                             sendChunked(channel, formatUserLine(user, line));
                         }
-                        user.openPrivateChannel().queue(dm ->
-                                dm.sendMessage("Got it — your **" + categoryType.label + "** ticket is open. Management will reply here.").queue(
-                                        ok -> {}, ignored -> {}
-                                )
-                        );
+
+                        if (categoryType == ModmailCategory.UNBAN) {
+                            // User-facing form belongs in DMs only (they can't see the staff channel)
+                            String appeal = UnbanAppealMessage.buildForDm(user.getAsMention());
+                            user.openPrivateChannel().queue(dm ->
+                                    dm.sendMessage(appeal).queue(ok -> {}, ignored -> {}),
+                                    ignored -> {}
+                            );
+                        }
+
                         onReady.accept(session);
                     }, err -> onError.accept("Failed to post opener: " + err.getMessage()));
                 }, err -> onError.accept("Failed to create channel: " + err.getMessage()))
@@ -681,6 +696,20 @@ public class ModmailService {
             logger.error("[Modmail] Failed to list logs for {}: {}", userId, e.getMessage());
         }
         return logs;
+    }
+
+    public int countLogsByUserId(String userId) {
+        String sql = "SELECT COUNT(*) FROM ez_modmail_logs WHERE user_id = ?";
+        try (Connection conn = DatabaseService.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, userId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return rs.getInt(1);
+            }
+        } catch (Exception e) {
+            logger.error("[Modmail] Failed to count logs for {}: {}", userId, e.getMessage());
+        }
+        return 0;
     }
 
     public int deleteLogsByUserId(String userId) {

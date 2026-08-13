@@ -92,6 +92,6 @@ public class SchedulerCommand implements Command {
                 return;
         }
 
-        event.reply("✅ **" + displayName + "** has been **" + status + "**.").queue();
+        event.reply("✅ **" + displayName + "** has been **" + status + "**.").setEphemeral(true).queue();
     }
 }

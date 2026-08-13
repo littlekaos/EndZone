@@ -55,37 +55,48 @@ public class ModmailLogServer {
     }
 
     private void handleLog(HttpExchange exchange) throws IOException {
-        if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
-            send(exchange, 405, "text/plain; charset=utf-8", "Method Not Allowed");
-            return;
-        }
+        try {
+            if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
+                send(exchange, 405, "text/plain; charset=utf-8", "Method Not Allowed");
+                return;
+            }
 
-        String path = exchange.getRequestURI().getPath();
-        String prefix = "/logs/";
-        if (path == null || !path.startsWith(prefix) || path.length() <= prefix.length()) {
-            send(exchange, 404, "text/plain; charset=utf-8", "Not Found");
-            return;
-        }
+            String path = exchange.getRequestURI().getPath();
+            String prefix = "/logs/";
+            if (path == null || !path.startsWith(prefix) || path.length() <= prefix.length()) {
+                send(exchange, 404, "text/plain; charset=utf-8", "Not Found");
+                return;
+            }
 
-        String uuid = path.substring(prefix.length()).trim();
-        if (uuid.contains("/") || uuid.isBlank()) {
-            send(exchange, 404, "text/plain; charset=utf-8", "Not Found");
-            return;
-        }
+            String uuid = path.substring(prefix.length()).trim();
+            // Strip query string / trailing junk if present
+            int q = uuid.indexOf('?');
+            if (q >= 0) uuid = uuid.substring(0, q);
+            if (uuid.contains("/") || uuid.isBlank()) {
+                send(exchange, 404, "text/plain; charset=utf-8", "Not Found");
+                return;
+            }
 
-        ModmailService modmail = ServiceManager.getModmailService();
-        if (modmail == null) {
-            send(exchange, 503, "text/plain; charset=utf-8", "Service Unavailable");
-            return;
-        }
+            ModmailService modmail = ServiceManager.getModmailService();
+            if (modmail == null) {
+                send(exchange, 503, "text/plain; charset=utf-8", "Service Unavailable");
+                return;
+            }
 
-        ModmailLog log = modmail.findLogByUuid(uuid);
-        if (log == null) {
-            send(exchange, 404, "text/html; charset=utf-8", notFoundHtml());
-            return;
-        }
+            ModmailLog log = modmail.findLogByUuid(uuid);
+            if (log == null) {
+                send(exchange, 404, "text/html; charset=utf-8", notFoundHtml());
+                return;
+            }
 
-        send(exchange, 200, "text/html; charset=utf-8", renderLogHtml(log));
+            send(exchange, 200, "text/html; charset=utf-8", renderLogHtml(log));
+        } catch (Exception e) {
+            logger.error("[ModmailLogs] Failed to serve log: {}", e.getMessage(), e);
+            try {
+                send(exchange, 500, "text/plain; charset=utf-8", "Internal Server Error");
+            } catch (Exception ignored) {
+            }
+        }
     }
 
     private String renderLogHtml(ModmailLog log) {
@@ -99,36 +110,35 @@ public class ModmailLogServer {
                 ? "(No messages in transcript)"
                 : log.getTranscript());
 
-        return """
-                <!DOCTYPE html>
-                <html lang="en">
-                <head>
-                  <meta charset="utf-8"/>
-                  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                  <title>EndZone Ticket Log</title>
-                  <style>
-                    body { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-                           margin: 0; background: #0f1115; color: #e8eaed; }
-                    header { padding: 1.25rem 1.5rem; border-bottom: 1px solid #2a2f3a; background: #161a22; }
-                    h1 { margin: 0 0 .5rem; font-size: 1.15rem; font-weight: 600; }
-                    .meta { color: #9aa3b2; font-size: .9rem; line-height: 1.5; }
-                    pre { margin: 0; padding: 1.5rem; white-space: pre-wrap; word-break: break-word;
-                          font-size: .92rem; line-height: 1.45; }
-                  </style>
-                </head>
-                <body>
-                  <header>
-                    <h1>EndZone — %s</h1>
-                    <div class="meta">
-                      User ID: %s<br/>
-                      Opened: %s<br/>
-                      Closed: %s by %s
-                    </div>
-                  </header>
-                  <pre>%s</pre>
-                </body>
-                </html>
-                """.formatted(category, escape(log.getUserId()), opened, closed, closer, body);
+        // Build with concatenation — transcript may contain '%' which breaks String.formatted()
+        return "<!DOCTYPE html>\n"
+                + "<html lang=\"en\">\n"
+                + "<head>\n"
+                + "  <meta charset=\"utf-8\"/>\n"
+                + "  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/>\n"
+                + "  <title>EndZone Ticket Log</title>\n"
+                + "  <style>\n"
+                + "    body { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;\n"
+                + "           margin: 0; background: #0f1115; color: #e8eaed; }\n"
+                + "    header { padding: 1.25rem 1.5rem; border-bottom: 1px solid #2a2f3a; background: #161a22; }\n"
+                + "    h1 { margin: 0 0 .5rem; font-size: 1.15rem; font-weight: 600; }\n"
+                + "    .meta { color: #9aa3b2; font-size: .9rem; line-height: 1.5; }\n"
+                + "    pre { margin: 0; padding: 1.5rem; white-space: pre-wrap; word-break: break-word;\n"
+                + "          font-size: .92rem; line-height: 1.45; }\n"
+                + "  </style>\n"
+                + "</head>\n"
+                + "<body>\n"
+                + "  <header>\n"
+                + "    <h1>EndZone — " + category + "</h1>\n"
+                + "    <div class=\"meta\">\n"
+                + "      User ID: " + escape(log.getUserId()) + "<br/>\n"
+                + "      Opened: " + opened + "<br/>\n"
+                + "      Closed: " + closed + " by " + closer + "\n"
+                + "    </div>\n"
+                + "  </header>\n"
+                + "  <pre>" + body + "</pre>\n"
+                + "</body>\n"
+                + "</html>\n";
     }
 
     private String notFoundHtml() {

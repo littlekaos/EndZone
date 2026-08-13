@@ -586,7 +586,7 @@ public class DataService {
     }
 
     public boolean isEventCountdownEnabled() {
-        return Boolean.parseBoolean(getMetadata("event_countdown_enabled", "true"));
+        return Boolean.parseBoolean(getMetadata("event_countdown_enabled", "false"));
     }
 
     public void setEventCountdownEnabled(boolean enabled) {
@@ -594,7 +594,7 @@ public class DataService {
     }
 
     public boolean isStaffAnnouncementsEnabled() {
-        return Boolean.parseBoolean(getMetadata("staff_announcements_enabled", "true"));
+        return Boolean.parseBoolean(getMetadata("staff_announcements_enabled", "false"));
     }
 
     public void setStaffAnnouncementsEnabled(boolean enabled) {
@@ -602,7 +602,7 @@ public class DataService {
     }
 
     public boolean isWeeklyAnnouncementEnabled() {
-        return Boolean.parseBoolean(getMetadata("weekly_announcement_enabled", "true"));
+        return Boolean.parseBoolean(getMetadata("weekly_announcement_enabled", "false"));
     }
 
     public void setWeeklyAnnouncementEnabled(boolean enabled) {
@@ -610,7 +610,7 @@ public class DataService {
     }
 
     public boolean isMondayAnnouncementEnabled() {
-        return Boolean.parseBoolean(getMetadata("monday_announcement_enabled", "true"));
+        return Boolean.parseBoolean(getMetadata("monday_announcement_enabled", "false"));
     }
 
     public void setMondayAnnouncementEnabled(boolean enabled) {
