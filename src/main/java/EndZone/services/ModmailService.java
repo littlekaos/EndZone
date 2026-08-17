@@ -637,10 +637,7 @@ public class ModmailService {
             return;
         }
 
-        String baseUrl = ServiceManager.getConfig() != null
-                ? ServiceManager.getConfig().getModmailLogsBaseUrl()
-                : "http://localhost:" + BotConfig.DEFAULT_MODMAIL_LOGS_PORT;
-        String logsUrl = baseUrl + "/logs/" + logUuid;
+        String logsUrl = buildWebLogUrl(logUuid);
 
         ServiceManager.getJda().retrieveUserById(session.getUserId()).queue(user -> {
             String summary = "EndZone thread with " + user.getName() + " (" + session.getUserId()
@@ -724,7 +721,11 @@ public class ModmailService {
         }
     }
 
-    public String buildLogUrl(String logUuid) {
+    public String buildLogUrl(ModmailLog log) {
+        return buildWebLogUrl(log.getLogUuid());
+    }
+
+    public String buildWebLogUrl(String logUuid) {
         String baseUrl = ServiceManager.getConfig() != null
                 ? ServiceManager.getConfig().getModmailLogsBaseUrl()
                 : "http://localhost:" + BotConfig.DEFAULT_MODMAIL_LOGS_PORT;
@@ -759,6 +760,12 @@ public class ModmailService {
     }
 
     private ModmailLog mapLogRow(ResultSet rs) throws Exception {
+        String discordUrl = null;
+        try {
+            discordUrl = rs.getString("discord_url");
+        } catch (Exception ignored) {
+            // older DBs before migration
+        }
         return new ModmailLog(
                 rs.getInt("id"),
                 rs.getString("log_uuid"),
@@ -769,7 +776,8 @@ public class ModmailService {
                 rs.getString("category"),
                 rs.getString("transcript"),
                 rs.getLong("created_at"),
-                rs.getLong("closed_at")
+                rs.getLong("closed_at"),
+                discordUrl
         );
     }
 

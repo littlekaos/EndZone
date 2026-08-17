@@ -34,9 +34,13 @@ public class EndZone {
     }
 
     public void run() throws Exception {
-        Dotenv dotenv = Dotenv.load();
-        String databaseUrl = dotenv.get("DATABASE_PATH");
-        if (databaseUrl == null || databaseUrl.isEmpty()) {
+        // Prefer real env vars (panels/hosting); .env is optional for local runs
+        Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
+        String databaseUrl = System.getenv("DATABASE_PATH");
+        if (databaseUrl == null || databaseUrl.isBlank()) {
+            databaseUrl = dotenv.get("DATABASE_PATH");
+        }
+        if (databaseUrl == null || databaseUrl.isBlank()) {
             databaseUrl = "jdbc:sqlite:endzone.db";
         }
         DatabaseService.initialize(databaseUrl);
@@ -76,6 +80,10 @@ public class EndZone {
         ModmailLogServer logServer = new ModmailLogServer(config.getModmailLogsPort());
         ServiceManager.setModmailLogServer(logServer);
         logServer.start();
+        logger.info("[ModmailLogs] Public log links use base URL: {}", config.getModmailLogsBaseUrl());
+        if (config.getModmailLogsBaseUrl().contains("localhost")) {
+            logger.warn("[ModmailLogs] Base URL is localhost — set MODMAIL_LOGS_BASE_URL so /logs links work publicly");
+        }
 
         String token = config.getToken();
         if (token == null || token.isEmpty()) {

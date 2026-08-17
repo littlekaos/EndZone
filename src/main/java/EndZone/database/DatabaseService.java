@@ -39,6 +39,7 @@ public class DatabaseService {
             migrateAfkTable();
             migrateModerationAnalyticsTable();
             migrateModmailSessionsTable();
+            migrateModmailLogsTable();
             migrateZreTablesToEz();
             dropLegacyTables();
             System.out.println("[DATABASE] Database connection pool initialized");
@@ -89,6 +90,22 @@ public class DatabaseService {
             }
         } catch (SQLException e) {
             System.err.println("[ERROR] Failed to migrate 'ez_modmail_sessions' table: " + e.getMessage());
+        }
+    }
+
+    private static void migrateModmailLogsTable() {
+        try (Connection conn = dataSource.getConnection()) {
+            DatabaseMetaData meta = conn.getMetaData();
+            try (ResultSet rs = meta.getColumns(null, null, "ez_modmail_logs", "discord_url")) {
+                if (!rs.next()) {
+                    System.out.println("[DATABASE] Adding missing column 'discord_url' to 'ez_modmail_logs' table");
+                    try (Statement stmt = conn.createStatement()) {
+                        stmt.execute("ALTER TABLE ez_modmail_logs ADD COLUMN discord_url TEXT");
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("[ERROR] Failed to migrate 'ez_modmail_logs' table: " + e.getMessage());
         }
     }
 
@@ -550,7 +567,7 @@ public class DatabaseService {
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_ez_modmail_user_status ON ez_modmail_sessions(user_id, status)");
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_ez_modmail_channel ON ez_modmail_sessions(channel_id)");
 
-            // ez_modmail_logs — web-hosted ticket transcripts
+            // ez_modmail_logs — ticket transcripts (Discord CDN link preferred)
             stmt.execute("""
                 CREATE TABLE IF NOT EXISTS ez_modmail_logs (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -562,7 +579,8 @@ public class DatabaseService {
                     category VARCHAR(64),
                     transcript TEXT NOT NULL,
                     created_at BIGINT NOT NULL,
-                    closed_at BIGINT NOT NULL
+                    closed_at BIGINT NOT NULL,
+                    discord_url TEXT
                 )
             """);
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_ez_modmail_logs_user ON ez_modmail_logs(user_id, closed_at DESC)");

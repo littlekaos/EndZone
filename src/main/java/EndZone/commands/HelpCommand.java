@@ -167,7 +167,7 @@ public class HelpCommand implements Command {
                 "📬 Modmail Commands",
                 "**`/reply message:`** - Send a staff reply to the user in an open ticket **Staff**\n" +
                 "**`/close [time] [cancel]`** - Close now, schedule a timed close, or cancel a timed close\n" +
-                "**`/logs user:`** - View past ticket history with web log links **Staff**\n" +
+                "**`/logs user:`** - View past ticket history with transcript links **Staff**\n" +
                 "**`/clear-logs [user]`** - Delete stored ticket history **Staff**\n" +
                 "**`/cleardms`** - Delete the bot's messages in your DM with it",
                 false
@@ -296,7 +296,7 @@ public class HelpCommand implements Command {
                 "📬 Modmail Commands",
                 "**`/reply message:`** - Send a staff reply to the user in an open ticket **Staff**\n" +
                 "**`/close [time] [cancel]`** - Close now, schedule a timed close, or cancel a timed close\n" +
-                "**`/logs user:`** - View past ticket history with web log links **Staff**\n" +
+                "**`/logs user:`** - View past ticket history with transcript links **Staff**\n" +
                 "**`/clear-logs [user]`** - Delete stored ticket history **Staff**\n" +
                 "**`/cleardms`** - Delete the bot's messages in your DM with it",
                 false

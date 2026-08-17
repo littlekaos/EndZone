@@ -81,59 +81,40 @@ public class BotConfig {
     private static Dotenv loadDotenv() {
         String envFilePath = System.getenv("ENV_FILE_PATH");
         if (envFilePath != null && !envFilePath.isEmpty()) {
-            System.out.println("Trying ENV_FILE_PATH: " + envFilePath);
             try {
                 Dotenv loaded = Dotenv.configure()
                         .filename(envFilePath)
                         .ignoreIfMissing()
                         .load();
                 if (loaded.get("BOT_TOKEN") != null || loaded.get("DATABASE_PATH") != null) {
-                    System.out.println("Loaded .env from ENV_FILE_PATH");
                     return loaded;
                 }
-            } catch (Exception e) {
-                System.out.println("Error loading from ENV_FILE_PATH: " + e.getMessage());
+            } catch (Exception ignored) {
+                // fall through
             }
         }
 
-        List<String> directories = new ArrayList<>();
-        directories.add(".");
-        directories.add("..");
-        directories.add("../");
-        directories.add("../../");
-        directories.add("/");
-        directories.add("/home");
-        directories.add("/home/container");
-        directories.add("/app");
-        directories.add("/bot");
-        directories.add("/srv");
-        directories.add(System.getProperty("user.home"));
-        directories.add(System.getProperty("user.dir"));
-        directories.add(System.getProperty("java.io.tmpdir"));
-        directories.add("./src/main/java/EndZone");
-        directories.add("./src/main/java/endzone");
-        directories.add("./src/main/resources");
+        // Prefer cwd (.env next to the jar); keep a short fallback list
+        List<String> directories = List.of(
+                ".",
+                System.getProperty("user.dir", "."),
+                "/home/container"
+        );
 
-        System.out.println("Searching for .env file in " + directories.size() + " directories...");
-        
         for (String dir : directories) {
             try {
-                System.out.println("  Checking: " + dir);
                 Dotenv loaded = Dotenv.configure()
                         .directory(dir)
                         .ignoreIfMissing()
                         .load();
-
                 if (loaded.get("BOT_TOKEN") != null || loaded.get("DATABASE_PATH") != null) {
-                    System.out.println("Found .env file at: " + dir);
                     return loaded;
                 }
-            } catch (Exception e) {
-                System.out.println("    Error: " + e.getMessage());
+            } catch (Exception ignored) {
+                // try next
             }
         }
 
-        System.out.println("WARNING: Could not find .env file in any directory!");
         return Dotenv.configure().ignoreIfMissing().load();
     }
 
@@ -387,7 +368,14 @@ public class BotConfig {
     }
 
     public int getModmailLogsPort() {
-        String raw = getEnvOrDefault("MODMAIL_LOGS_PORT", String.valueOf(DEFAULT_MODMAIL_LOGS_PORT));
+        // Prefer MODMAIL_LOGS_PORT, then common panel PORT / SERVER_PORT envs
+        String raw = getEnvOrDefault("MODMAIL_LOGS_PORT", "");
+        if (raw == null || raw.isBlank()) {
+            raw = getEnvOrDefault("PORT", "");
+        }
+        if (raw == null || raw.isBlank()) {
+            raw = getEnvOrDefault("SERVER_PORT", String.valueOf(DEFAULT_MODMAIL_LOGS_PORT));
+        }
         try {
             int port = Integer.parseInt(raw.trim());
             if (port < 1 || port > 65535) {
@@ -399,7 +387,7 @@ public class BotConfig {
         }
     }
 
-    /** Public base URL for Discord log links (no trailing slash), e.g. http://203.0.113.10:8890 */
+    /** Public base URL for Discord log links (no trailing slash), e.g. http://68.39.20.91:8890 */
     public String getModmailLogsBaseUrl() {
         String configured = getEnvOrDefault("MODMAIL_LOGS_BASE_URL", "");
         if (configured != null && !configured.isBlank()) {
