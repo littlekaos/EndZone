@@ -77,10 +77,12 @@ public class EndZone {
         ServiceManager.getDemotionService().setRoleRestorationService(ServiceManager.getRoleRestorationService());
         ServiceManager.getDataService().setUserCache(ServiceManager.getUserCache());
 
-        ModmailLogServer logServer = new ModmailLogServer(config.getModmailLogsPort());
+        ModmailLogServer logServer = new ModmailLogServer(config.getModmailLogsPorts());
         ServiceManager.setModmailLogServer(logServer);
         logServer.start();
-        logger.info("[ModmailLogs] Public log links use base URL: {}", config.getModmailLogsBaseUrl());
+        logger.info("[ModmailLogs] Listening on ports: {}", config.getModmailLogsPorts());
+        logger.info("[ModmailLogs] Detected host: {}", config.getModmailLogsHostDescription());
+        logger.info("[ModmailLogs] Public log links: {}", config.getModmailLogsPublicPrefixes());
         if (config.getModmailLogsBaseUrl().contains("localhost")) {
             logger.warn("[ModmailLogs] Base URL is localhost — set MODMAIL_LOGS_BASE_URL so /logs links work publicly");
         }
@@ -165,6 +167,7 @@ public class EndZone {
         }));
         
         EmbedInitializer.initializeEmbeds(jda);
+        ServiceManager.getModmailService().rewritePostedLogLinksAsync();
         logger.info("EndZone Bot is ready!");
     }
 

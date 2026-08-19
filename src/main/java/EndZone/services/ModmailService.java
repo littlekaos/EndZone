@@ -45,9 +45,16 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class ModmailService {
     private static final Logger logger = LoggerFactory.getLogger(ModmailService.class);
+    private static final Pattern LOG_UUID_IN_URL = Pattern.compile(
+            "/logs/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})"
+    );
+    private static final int LOG_LINK_REWRITE_HISTORY = 1500;
+    private static final long LOG_LINK_REWRITE_DELAY_MS = 400;
     private static final int DISCORD_MESSAGE_LIMIT = 1900;
     private static final ScheduledExecutorService CLOSE_SCHEDULER = Executors.newSingleThreadScheduledExecutor(r -> {
         Thread t = new Thread(r, "modmail-close-scheduler");
@@ -637,26 +644,29 @@ public class ModmailService {
             return;
         }
 
-        String logsUrl = buildWebLogUrl(logUuid);
+        String logsUrls = String.join("\n", buildWebLogUrls(logUuid));
 
         ServiceManager.getJda().retrieveUserById(session.getUserId()).queue(user -> {
             String summary = "EndZone thread with " + user.getName() + " (" + session.getUserId()
-                    + ") was closed by " + closerName + "\nLogs: " + logsUrl;
-            postCloseSummary(logChannel, summary, onDone);
+                    + ") was closed by " + closerName + "\nLogs:\n" + logsUrls;
+            postCloseSummary(logChannel, summary, logUuid, onDone);
         }, err -> {
             String summary = "EndZone thread with unknown (" + session.getUserId()
-                    + ") was closed by " + closerName + "\nLogs: " + logsUrl;
-            postCloseSummary(logChannel, summary, onDone);
+                    + ") was closed by " + closerName + "\nLogs:\n" + logsUrls;
+            postCloseSummary(logChannel, summary, logUuid, onDone);
         });
     }
 
-    private void postCloseSummary(TextChannel logChannel, String summary, Runnable onDone) {
+    private void postCloseSummary(TextChannel logChannel, String summary, String logUuid, Runnable onDone) {
         var message = new MessageCreateBuilder()
                 .setContent(summary)
                 .setAllowedMentions(List.of())
                 .build();
         logChannel.sendMessage(message).queue(
-                ok -> onDone.run(),
+                ok -> {
+                    updateLogDiscordUrl(logUuid, ok.getJumpUrl());
+                    onDone.run();
+                },
                 err -> {
                     logger.warn("[Modmail] Failed to post close log: {}", err.getMessage());
                     onDone.run();
@@ -725,11 +735,120 @@ public class ModmailService {
         return buildWebLogUrl(log.getLogUuid());
     }
 
+    public List<String> buildWebLogUrls(String logUuid) {
+        if (ServiceManager.getConfig() != null) {
+            List<String> urls = ServiceManager.getConfig().buildModmailLogUrls(logUuid);
+            if (!urls.isEmpty()) {
+                return urls;
+            }
+        }
+        return List.of("http://localhost:" + BotConfig.DEFAULT_MODMAIL_LOGS_PORT + "/logs/" + logUuid);
+    }
+
     public String buildWebLogUrl(String logUuid) {
-        String baseUrl = ServiceManager.getConfig() != null
-                ? ServiceManager.getConfig().getModmailLogsBaseUrl()
-                : "http://localhost:" + BotConfig.DEFAULT_MODMAIL_LOGS_PORT;
-        return baseUrl + "/logs/" + logUuid;
+        return buildWebLogUrls(logUuid).get(0);
+    }
+
+    public String buildLogUrlBlock(ModmailLog log) {
+        return String.join("\n", buildWebLogUrls(log.getLogUuid()));
+    }
+
+    /**
+     * After boot, rewrite already-posted close-summary messages so their log URLs
+     * match this machine (desktop 8080 first, laptop 8890/9090 first, then fallbacks).
+     */
+    public void rewritePostedLogLinksAsync() {
+        TextChannel channel = getLogChannel();
+        if (channel == null) {
+            logger.warn("[ModmailLogs] Cannot rewrite posted links — log channel not found");
+            return;
+        }
+        String selfId = ServiceManager.getJda().getSelfUser().getId();
+        logger.info("[ModmailLogs] Scanning log channel to update ticket links for this host...");
+        channel.getIterableHistory().takeAsync(LOG_LINK_REWRITE_HISTORY).thenAccept(messages -> {
+            int queued = 0;
+            for (Message msg : messages) {
+                if (!selfId.equals(msg.getAuthor().getId())) {
+                    continue;
+                }
+                String updated = rewriteCloseSummaryContent(msg.getContentRaw());
+                if (updated == null || updated.equals(msg.getContentRaw())) {
+                    continue;
+                }
+                long delay = queued * LOG_LINK_REWRITE_DELAY_MS;
+                String jump = msg.getJumpUrl();
+                String uuid = extractLogUuid(updated);
+                msg.editMessage(updated).queueAfter(delay, TimeUnit.MILLISECONDS,
+                        ok -> {
+                            if (uuid != null) {
+                                updateLogDiscordUrl(uuid, jump);
+                            }
+                        },
+                        err -> logger.warn("[ModmailLogs] Failed to rewrite {}: {}", jump, err.getMessage())
+                );
+                queued++;
+            }
+            if (queued == 0) {
+                logger.info("[ModmailLogs] Posted ticket links already match this host");
+            } else {
+                logger.info("[ModmailLogs] Updating {} posted ticket link message(s)", queued);
+            }
+        }).exceptionally(err -> {
+            logger.warn("[ModmailLogs] Failed to scan log channel: {}", err.getMessage());
+            return null;
+        });
+    }
+
+    String rewriteCloseSummaryContent(String content) {
+        if (content == null || !content.contains("/logs/")) {
+            return null;
+        }
+        String uuid = extractLogUuid(content);
+        if (uuid == null) {
+            return null;
+        }
+        List<String> urls = buildWebLogUrls(uuid);
+        if (urls.isEmpty()) {
+            return null;
+        }
+        String newBlock = "Logs:\n" + String.join("\n", urls);
+        if (content.contains(newBlock) && countLogUrls(content) == urls.size()) {
+            return content;
+        }
+        int logsIdx = content.indexOf("Logs:");
+        if (logsIdx >= 0) {
+            return content.substring(0, logsIdx) + newBlock;
+        }
+        return content;
+    }
+
+    private static String extractLogUuid(String content) {
+        Matcher m = LOG_UUID_IN_URL.matcher(content);
+        return m.find() ? m.group(1) : null;
+    }
+
+    private static int countLogUrls(String content) {
+        int count = 0;
+        Matcher m = LOG_UUID_IN_URL.matcher(content);
+        while (m.find()) {
+            count++;
+        }
+        return count;
+    }
+
+    private void updateLogDiscordUrl(String logUuid, String discordUrl) {
+        if (logUuid == null || discordUrl == null || discordUrl.isBlank()) {
+            return;
+        }
+        String sql = "UPDATE ez_modmail_logs SET discord_url = ? WHERE log_uuid = ?";
+        try (Connection conn = DatabaseService.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, discordUrl);
+            ps.setString(2, logUuid);
+            ps.executeUpdate();
+        } catch (Exception e) {
+            logger.warn("[Modmail] Failed to save discord_url for {}: {}", logUuid, e.getMessage());
+        }
     }
 
     private boolean saveLog(String logUuid, ModmailSession session, String closedById,

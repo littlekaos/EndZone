@@ -13,6 +13,8 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.Executors;
 
 public class ModmailLogServer {
@@ -21,37 +23,56 @@ public class ModmailLogServer {
     private static final DateTimeFormatter TIME_FMT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z").withZone(EASTERN);
 
-    private final int port;
-    private HttpServer server;
+    private final List<Integer> ports;
+    private final List<HttpServer> servers = new ArrayList<>();
 
     public ModmailLogServer(int port) {
-        this.port = port;
+        this(List.of(port));
+    }
+
+    public ModmailLogServer(List<Integer> ports) {
+        this.ports = ports == null || ports.isEmpty()
+                ? List.of(8890)
+                : List.copyOf(ports);
     }
 
     public void start() {
-        if (server != null) return;
-        try {
-            server = HttpServer.create(new InetSocketAddress("0.0.0.0", port), 0);
-            server.createContext("/logs/", this::handleLog);
-            server.setExecutor(Executors.newCachedThreadPool(r -> {
-                Thread t = new Thread(r, "modmail-log-server");
-                t.setDaemon(true);
-                return t;
-            }));
-            server.start();
-            logger.info("[ModmailLogs] Serving ticket logs on port {}", port);
-        } catch (IOException e) {
-            logger.error("[ModmailLogs] Failed to start log server on port {}: {}", port, e.getMessage());
-            server = null;
+        if (!servers.isEmpty()) return;
+        for (int port : ports) {
+            try {
+                HttpServer server = HttpServer.create(new InetSocketAddress("0.0.0.0", port), 0);
+                server.createContext("/logs/", this::handleLog);
+                server.setExecutor(Executors.newCachedThreadPool(r -> {
+                    Thread t = new Thread(r, "modmail-log-server-" + port);
+                    t.setDaemon(true);
+                    return t;
+                }));
+                server.start();
+                servers.add(server);
+                logger.info("[ModmailLogs] Serving ticket logs on port {}", port);
+            } catch (IOException e) {
+                logger.error("[ModmailLogs] Failed to start log server on port {}: {}", port, e.getMessage());
+            }
+        }
+        if (servers.isEmpty()) {
+            logger.error("[ModmailLogs] No log servers started — check MODMAIL_LOGS_PORTS");
+        } else if (servers.size() < ports.size()) {
+            logger.warn("[ModmailLogs] Started {}/{} ports (some may be in use)", servers.size(), ports.size());
         }
     }
 
     public void stop() {
-        if (server != null) {
+        for (HttpServer server : servers) {
             server.stop(0);
-            server = null;
-            logger.info("[ModmailLogs] Log server stopped");
         }
+        if (!servers.isEmpty()) {
+            logger.info("[ModmailLogs] Log servers stopped");
+        }
+        servers.clear();
+    }
+
+    public List<Integer> getPorts() {
+        return ports;
     }
 
     private void handleLog(HttpExchange exchange) throws IOException {
@@ -69,7 +90,6 @@ public class ModmailLogServer {
             }
 
             String uuid = path.substring(prefix.length()).trim();
-            // Strip query string / trailing junk if present
             int q = uuid.indexOf('?');
             if (q >= 0) uuid = uuid.substring(0, q);
             if (uuid.contains("/") || uuid.isBlank()) {
@@ -110,7 +130,6 @@ public class ModmailLogServer {
                 ? "(No messages in transcript)"
                 : log.getTranscript());
 
-        // Build with concatenation — transcript may contain '%' which breaks String.formatted()
         return "<!DOCTYPE html>\n"
                 + "<html lang=\"en\">\n"
                 + "<head>\n"

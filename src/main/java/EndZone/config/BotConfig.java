@@ -3,10 +3,17 @@ package EndZone.config;
 import io.github.cdimascio.dotenv.Dotenv;
 import net.dv8tion.jda.api.OnlineStatus;
 
+import java.net.Inet4Address;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Enumeration;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 public class BotConfig {
@@ -132,6 +139,12 @@ public class BotConfig {
     /** CourtZone channel for modmail close logs with transcripts. */
     public static final String MODMAIL_LOG_CHANNEL_ID = "1095752922903621682";
     public static final int DEFAULT_MODMAIL_LOGS_PORT = 8890;
+    /**
+     * LAN IP / hostname → preferred public log port(s). Same host may appear twice
+     * (laptop has 8890 and 9090). Desktop is 8080 until the mini PC takes that port.
+     */
+    private static final String DEFAULT_MODMAIL_LOGS_HOST_MAP =
+            "10.0.0.216:8080,BCGAMINGPC:8080,10.0.0.101:8890,10.0.0.101:9090";
 
     public static final String MODMAIL_CAT_UNBAN = "modmail_cat_unban";
     public static final String MODMAIL_CAT_GEM = "modmail_cat_gem";
@@ -367,10 +380,56 @@ public class BotConfig {
         return getEnvOrDefault("BOT_STATUS_URL", "https://www.twitch.tv/mrjawesomeyt");
     }
 
+    /**
+     * Ports the log HTTP server binds on (home-lab multi-host).
+     * Prefer {@code MODMAIL_LOGS_PORTS=8080,8890,9090}; falls back to single {@code MODMAIL_LOGS_PORT}.
+     * Bind all of these on every host. Discord link order is this machine's preferred ports first.
+     */
+    public List<Integer> getModmailLogsPorts() {
+        String multi = getEnvOrDefault("MODMAIL_LOGS_PORTS", "");
+        List<Integer> ports = new ArrayList<>();
+        if (multi != null && !multi.isBlank()) {
+            for (String part : multi.split("[,\\s]+")) {
+                if (part.isBlank()) continue;
+                try {
+                    int port = Integer.parseInt(part.trim());
+                    if (port >= 1 && port <= 65535 && !ports.contains(port)) {
+                        ports.add(port);
+                    }
+                } catch (NumberFormatException ignored) {
+                    // skip bad tokens
+                }
+            }
+        }
+        if (ports.isEmpty()) {
+            ports.add(getModmailLogsPort());
+        }
+        return ports;
+    }
+
     public int getModmailLogsPort() {
+        List<Integer> detected = detectModmailLogsPorts();
+        if (!detected.isEmpty()) {
+            return detected.get(0);
+        }
         // Prefer MODMAIL_LOGS_PORT, then common panel PORT / SERVER_PORT envs
         String raw = getEnvOrDefault("MODMAIL_LOGS_PORT", "");
         if (raw == null || raw.isBlank()) {
+            // First port from MODMAIL_LOGS_PORTS if set
+            String multi = getEnvOrDefault("MODMAIL_LOGS_PORTS", "");
+            if (multi != null && !multi.isBlank()) {
+                for (String part : multi.split("[,\\s]+")) {
+                    if (part.isBlank()) continue;
+                    try {
+                        int port = Integer.parseInt(part.trim());
+                        if (port >= 1 && port <= 65535) {
+                            return port;
+                        }
+                    } catch (NumberFormatException ignored) {
+                        // try next
+                    }
+                }
+            }
             raw = getEnvOrDefault("PORT", "");
         }
         if (raw == null || raw.isBlank()) {
@@ -387,13 +446,199 @@ public class BotConfig {
         }
     }
 
-    /** Public base URL for Discord log links (no trailing slash), e.g. http://68.39.20.91:8890 */
+    /**
+     * Public base URL for Discord log links (no trailing slash).
+     * Uses the first listen port with the public hostname from {@code MODMAIL_LOGS_BASE_URL}.
+     */
     public String getModmailLogsBaseUrl() {
+        List<String> prefixes = getModmailLogsPublicPrefixes();
+        return prefixes.isEmpty() ? "http://localhost:" + getModmailLogsPort() : prefixes.get(0);
+    }
+
+    /**
+     * One public origin per listen port. This machine's preferred ports come first
+     * (desktop: 8080, laptop: 8890 then 9090), then the other ports as fallbacks.
+     */
+    public List<String> getModmailLogsPublicPrefixes() {
+        String scheme = "http";
+        String host = "localhost";
         String configured = getEnvOrDefault("MODMAIL_LOGS_BASE_URL", "");
         if (configured != null && !configured.isBlank()) {
-            return configured.replaceAll("/+$", "");
+            try {
+                URI uri = URI.create(configured.replaceAll("/+$", ""));
+                if (uri.getScheme() != null && !uri.getScheme().isBlank()) {
+                    scheme = uri.getScheme();
+                }
+                if (uri.getHost() != null && !uri.getHost().isBlank()) {
+                    host = uri.getHost();
+                }
+            } catch (Exception ignored) {
+                // keep localhost fallback
+            }
         }
-        return "http://localhost:" + getModmailLogsPort();
+        List<String> prefixes = new ArrayList<>();
+        for (int port : getModmailLogsLinkPorts()) {
+            prefixes.add(scheme + "://" + host + ":" + port);
+        }
+        return prefixes;
+    }
+
+    /** Listen ports ordered for Discord links: this host first, then fallbacks. */
+    public List<Integer> getModmailLogsLinkPorts() {
+        List<Integer> all = getModmailLogsPorts();
+        List<Integer> preferred = detectModmailLogsPorts();
+        List<Integer> ordered = new ArrayList<>();
+        for (int port : preferred) {
+            if (all.contains(port) && !ordered.contains(port)) {
+                ordered.add(port);
+            }
+        }
+        for (int port : all) {
+            if (!ordered.contains(port)) {
+                ordered.add(port);
+            }
+        }
+        return ordered;
+    }
+
+    public List<String> buildModmailLogUrls(String logUuid) {
+        List<String> urls = new ArrayList<>();
+        for (String prefix : getModmailLogsPublicPrefixes()) {
+            urls.add(prefix + "/logs/" + logUuid);
+        }
+        return urls;
+    }
+
+    /** e.g. {@code laptop (10.0.0.101 → 8890, 9090)} or {@code .env (no LAN match)}. */
+    public String getModmailLogsHostDescription() {
+        detectModmailLogsPorts();
+        return modmailHostDescription != null ? modmailHostDescription : ".env (no LAN match)";
+    }
+
+    private List<Integer> modmailDetectedPorts;
+    private String modmailHostDescription;
+    private boolean modmailHostResolved;
+
+    private List<Integer> detectModmailLogsPorts() {
+        if (modmailHostResolved) {
+            return modmailDetectedPorts != null ? modmailDetectedPorts : List.of();
+        }
+        modmailHostResolved = true;
+        modmailDetectedPorts = new ArrayList<>();
+
+        Map<String, List<Integer>> map = parseHostMap(getEnvOrDefault("MODMAIL_LOGS_HOST_MAP", DEFAULT_MODMAIL_LOGS_HOST_MAP));
+        if (map.isEmpty()) {
+            modmailHostDescription = ".env (empty host map)";
+            return modmailDetectedPorts;
+        }
+
+        String hostname = "";
+        try {
+            hostname = InetAddress.getLocalHost().getHostName();
+        } catch (Exception ignored) {
+            // fall through to IP match
+        }
+        if (hostname != null && !hostname.isBlank()) {
+            List<Integer> ports = map.get(hostname.trim().toLowerCase(Locale.ROOT));
+            addUniquePorts(modmailDetectedPorts, ports);
+        }
+
+        String matchedIp = null;
+        for (String ip : localIpv4Addresses()) {
+            List<Integer> ports = map.get(ip.toLowerCase(Locale.ROOT));
+            if (ports != null && !ports.isEmpty()) {
+                addUniquePorts(modmailDetectedPorts, ports);
+                if (matchedIp == null) {
+                    matchedIp = ip;
+                }
+            }
+        }
+
+        if (!modmailDetectedPorts.isEmpty()) {
+            String kind = "10.0.0.101".equals(matchedIp) ? "laptop"
+                    : "10.0.0.216".equals(matchedIp) ? "desktop"
+                    : (hostname != null && hostname.equalsIgnoreCase("BCGAMINGPC")) ? "desktop"
+                    : "this-host";
+            String who = matchedIp != null ? matchedIp : hostname;
+            modmailHostDescription = kind + " (" + who + " → " + joinPorts(modmailDetectedPorts) + ")";
+        } else {
+            List<String> ips = localIpv4Addresses();
+            modmailHostDescription = "no LAN match (hostname=" + hostname + ", ips=" + ips + ")";
+        }
+        return modmailDetectedPorts;
+    }
+
+    private static void addUniquePorts(List<Integer> into, List<Integer> ports) {
+        if (ports == null) return;
+        for (int port : ports) {
+            if (!into.contains(port)) {
+                into.add(port);
+            }
+        }
+    }
+
+    private static String joinPorts(List<Integer> ports) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < ports.size(); i++) {
+            if (i > 0) sb.append(", ");
+            sb.append(ports.get(i));
+        }
+        return sb.toString();
+    }
+
+    private static Map<String, List<Integer>> parseHostMap(String raw) {
+        Map<String, List<Integer>> map = new LinkedHashMap<>();
+        if (raw == null || raw.isBlank()) {
+            return map;
+        }
+        for (String part : raw.split("[,\\s]+")) {
+            if (part.isBlank() || !part.contains(":")) continue;
+            int split = part.lastIndexOf(':');
+            String host = part.substring(0, split).trim().toLowerCase(Locale.ROOT);
+            String portStr = part.substring(split + 1).trim();
+            if (host.isBlank()) continue;
+            try {
+                int port = Integer.parseInt(portStr);
+                if (port >= 1 && port <= 65535) {
+                    map.computeIfAbsent(host, k -> new ArrayList<>());
+                    List<Integer> ports = map.get(host);
+                    if (!ports.contains(port)) {
+                        ports.add(port);
+                    }
+                }
+            } catch (NumberFormatException ignored) {
+                // skip bad tokens
+            }
+        }
+        return map;
+    }
+
+    private static List<String> localIpv4Addresses() {
+        List<String> ips = new ArrayList<>();
+        try {
+            Enumeration<NetworkInterface> ifaces = NetworkInterface.getNetworkInterfaces();
+            while (ifaces.hasMoreElements()) {
+                NetworkInterface nif = ifaces.nextElement();
+                try {
+                    if (!nif.isUp() || nif.isLoopback()) continue;
+                } catch (Exception ignored) {
+                    continue;
+                }
+                Enumeration<InetAddress> addrs = nif.getInetAddresses();
+                while (addrs.hasMoreElements()) {
+                    InetAddress addr = addrs.nextElement();
+                    if (addr instanceof Inet4Address
+                            && !addr.isLoopbackAddress()
+                            && !addr.isMulticastAddress()
+                            && !addr.isLinkLocalAddress()) {
+                        ips.add(addr.getHostAddress());
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+            // no interfaces; host map will not match
+        }
+        return ips;
     }
 
     public OnlineStatus getOnlineStatus() {
