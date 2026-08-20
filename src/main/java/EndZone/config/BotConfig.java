@@ -456,8 +456,8 @@ public class BotConfig {
     }
 
     /**
-     * One public origin per listen port. This machine's preferred ports come first
-     * (desktop: 8080, laptop: 8890 then 9090), then the other ports as fallbacks.
+     * Single public origin for Discord log links (this machine's preferred port).
+     * Desktop → 8080, laptop → 8890. Other ports are still bound locally as fallbacks.
      */
     public List<String> getModmailLogsPublicPrefixes() {
         String scheme = "http";
@@ -476,29 +476,27 @@ public class BotConfig {
                 // keep localhost fallback
             }
         }
-        List<String> prefixes = new ArrayList<>();
-        for (int port : getModmailLogsLinkPorts()) {
-            prefixes.add(scheme + "://" + host + ":" + port);
-        }
-        return prefixes;
+        return List.of(scheme + "://" + host + ":" + getModmailLogsPublicPort());
     }
 
-    /** Listen ports ordered for Discord links: this host first, then fallbacks. */
-    public List<Integer> getModmailLogsLinkPorts() {
-        List<Integer> all = getModmailLogsPorts();
+    /**
+     * One port for Discord links: this host's primary (desktop 8080, laptop 8890).
+     */
+    public int getModmailLogsPublicPort() {
         List<Integer> preferred = detectModmailLogsPorts();
-        List<Integer> ordered = new ArrayList<>();
-        for (int port : preferred) {
-            if (all.contains(port) && !ordered.contains(port)) {
-                ordered.add(port);
-            }
+        if (!preferred.isEmpty()) {
+            return preferred.get(0);
         }
-        for (int port : all) {
-            if (!ordered.contains(port)) {
-                ordered.add(port);
-            }
+        List<Integer> all = getModmailLogsPorts();
+        if (!all.isEmpty()) {
+            return all.get(0);
         }
-        return ordered;
+        return getModmailLogsPort();
+    }
+
+    /** @deprecated use {@link #getModmailLogsPublicPort()} — kept for older call sites. */
+    public List<Integer> getModmailLogsLinkPorts() {
+        return List.of(getModmailLogsPublicPort());
     }
 
     public List<String> buildModmailLogUrls(String logUuid) {

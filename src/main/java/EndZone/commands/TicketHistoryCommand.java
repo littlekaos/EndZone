@@ -65,9 +65,9 @@ public class TicketHistoryCommand implements Command {
                     ? log.getCategory()
                     : "Ticket";
             String closer = log.getClosedByName() != null ? log.getClosedByName() : "staff";
-            String urls = modmail.buildLogUrlBlock(log);
+            String url = modmail.buildWebLogUrl(log.getLogUuid());
             String line = "<t:" + (log.getClosedAt() / 1000) + ":d> — **" + category + "** · closed by "
-                    + closer + "\n" + urls + "\n\n";
+                    + closer + "\n" + url + "\n\n";
             if (desc.length() + line.length() > 3900) {
                 break;
             }

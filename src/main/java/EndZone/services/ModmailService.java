@@ -644,15 +644,15 @@ public class ModmailService {
             return;
         }
 
-        String logsUrls = String.join("\n", buildWebLogUrls(logUuid));
+        String logsUrl = buildWebLogUrl(logUuid);
 
         ServiceManager.getJda().retrieveUserById(session.getUserId()).queue(user -> {
             String summary = "EndZone thread with " + user.getName() + " (" + session.getUserId()
-                    + ") was closed by " + closerName + "\nLogs:\n" + logsUrls;
+                    + ") was closed by " + closerName + "\nLogs: " + logsUrl;
             postCloseSummary(logChannel, summary, logUuid, onDone);
         }, err -> {
             String summary = "EndZone thread with unknown (" + session.getUserId()
-                    + ") was closed by " + closerName + "\nLogs:\n" + logsUrls;
+                    + ") was closed by " + closerName + "\nLogs: " + logsUrl;
             postCloseSummary(logChannel, summary, logUuid, onDone);
         });
     }
@@ -754,8 +754,8 @@ public class ModmailService {
     }
 
     /**
-     * After boot, rewrite already-posted close-summary messages so their log URLs
-     * match this machine (desktop 8080 first, laptop 8890/9090 first, then fallbacks).
+     * After boot, rewrite already-posted close-summary messages so each has
+     * a single Logs: URL for this machine (desktop 8080, laptop 8890).
      */
     public void rewritePostedLogLinksAsync() {
         TextChannel channel = getLogChannel();
@@ -811,8 +811,9 @@ public class ModmailService {
         if (urls.isEmpty()) {
             return null;
         }
-        String newBlock = "Logs:\n" + String.join("\n", urls);
-        if (content.contains(newBlock) && countLogUrls(content) == urls.size()) {
+        String url = urls.get(0);
+        String newBlock = "Logs: " + url;
+        if (countLogUrls(content) == 1 && content.contains(url)) {
             return content;
         }
         int logsIdx = content.indexOf("Logs:");

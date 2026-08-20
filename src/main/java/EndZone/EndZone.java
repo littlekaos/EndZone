@@ -82,7 +82,7 @@ public class EndZone {
         logServer.start();
         logger.info("[ModmailLogs] Listening on ports: {}", config.getModmailLogsPorts());
         logger.info("[ModmailLogs] Detected host: {}", config.getModmailLogsHostDescription());
-        logger.info("[ModmailLogs] Public log links: {}", config.getModmailLogsPublicPrefixes());
+        logger.info("[ModmailLogs] Public log link: {}", config.getModmailLogsBaseUrl());
         if (config.getModmailLogsBaseUrl().contains("localhost")) {
             logger.warn("[ModmailLogs] Base URL is localhost — set MODMAIL_LOGS_BASE_URL so /logs links work publicly");
         }
