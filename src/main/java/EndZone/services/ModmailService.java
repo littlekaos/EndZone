@@ -755,7 +755,7 @@ public class ModmailService {
 
     /**
      * After boot, rewrite already-posted close-summary messages so each has
-     * a single Logs: URL for this machine (desktop 8080, laptop 8890).
+     * a single Logs: URL for this machine (desktop 8080, laptop 8890, mini PC 9090).
      */
     public void rewritePostedLogLinksAsync() {
         TextChannel channel = getLogChannel();

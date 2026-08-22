@@ -146,9 +146,11 @@ public class EndZone {
         ServiceManager.getDemotionSyncService().initialize(jda);
         ServiceManager.getBanSyncService().syncBans(jda);
         
-        net.dv8tion.jda.api.entities.Guild guild = jda.getGuildById(config.getGuildId());
-        if (guild != null) {
-            ServiceManager.getLoggingService().initializeLogChannels(guild);
+        for (String guildId : new String[]{config.getGuildId(), BotConfig.COURT_GUILD_ID}) {
+            net.dv8tion.jda.api.entities.Guild guild = jda.getGuildById(guildId);
+            if (guild != null) {
+                ServiceManager.getLoggingService().initializeLogChannels(guild);
+            }
         }
         
         SchedulerManager.start(jda);

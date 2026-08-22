@@ -614,7 +614,10 @@ public class ServerLogEventListener extends ListenerAdapter {
                 .addField("New Name", event.getNewName(), false)
                 .setTimestamp(Instant.now());
         if (user.getAvatarUrl() != null) embed.setThumbnail(user.getAvatarUrl());
-        bot.getLoggingService().logAction(user.getMutualGuilds().get(0), "name-logs", embed.build());
+        var nameEmbed = embed.build();
+        for (Guild guild : user.getMutualGuilds()) {
+            bot.getLoggingService().logAction(guild, "name-logs", nameEmbed);
+        }
     }
 
     @Override
@@ -639,7 +642,10 @@ public class ServerLogEventListener extends ListenerAdapter {
                 .addField("New Avatar", (event.getNewAvatarUrl() != null ? "[Link](" + event.getNewAvatarUrl() + ")" : "None"), false)
                 .setTimestamp(Instant.now());
         if (event.getNewAvatarUrl() != null) embed.setThumbnail(event.getNewAvatarUrl());
-        bot.getLoggingService().logAction(user.getMutualGuilds().get(0), "endzone-logs", embed.build());
+        var avatarEmbed = embed.build();
+        for (Guild guild : user.getMutualGuilds()) {
+            bot.getLoggingService().logAction(guild, "endzone-logs", avatarEmbed);
+        }
     }
 
     // --- Voice Events ---

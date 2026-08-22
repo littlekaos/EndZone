@@ -140,11 +140,11 @@ public class BotConfig {
     public static final String MODMAIL_LOG_CHANNEL_ID = "1095752922903621682";
     public static final int DEFAULT_MODMAIL_LOGS_PORT = 8890;
     /**
-     * LAN IP / hostname → preferred public log port(s). Same host may appear twice
-     * (laptop has 8890 and 9090). Desktop is 8080 until the mini PC takes that port.
+     * LAN IP / hostname → Discord log port: desktop 8080, laptop 8890, mini PC 9090.
+     * Add the mini PC’s LAN IP as {@code 10.0.0.X:9090} when it arrives.
      */
     private static final String DEFAULT_MODMAIL_LOGS_HOST_MAP =
-            "10.0.0.216:8080,BCGAMINGPC:8080,10.0.0.101:8890,10.0.0.101:9090";
+            "10.0.0.216:8080,BCGAMINGPC:8080,10.0.0.101:8890";
 
     public static final String MODMAIL_CAT_UNBAN = "modmail_cat_unban";
     public static final String MODMAIL_CAT_GEM = "modmail_cat_gem";
@@ -189,11 +189,13 @@ public class BotConfig {
     // Channels
     public static final String ENDZONE_LOG_CHANNEL_ID = "1478577625730388109";
     public static final String MOD_LOG_CHANNEL_ID = "1478866155723690145";
-    public static final String VOICE_LOG_CHANNEL_ID = "1092426362016514129";
+    public static final String VOICE_LOG_CHANNEL_ID = "1478589055662031090";
     public static final String NAME_LOG_CHANNEL_ID = "1478561789062021202";
     public static final String EVENT_NAME_LOG_ID = "1478585421318455447";
-    public static final String JOIN_LEAVE_LOG_CHANNEL_ID = "790178136527863838";
+    public static final String JOIN_LEAVE_LOG_CHANNEL_ID = "1478540210110206057";
     public static final String MESSAGE_LOG_CHANNEL_ID = "1478568628537262283";
+    /** CourtZone #bot-logs — every CourtZone log type is redirected here. */
+    public static final String COURT_BOT_LOG_CHANNEL_ID = "1095768224055959582";
     public static final String STAFF_NOTIFICATION_CHANNEL_ID = "1478853936441200690";
     public static final String APPLICATION_CHANNEL_ID = "1478855549553479813";
     public static final String MANAGER_CHAT_CHANNEL_ID = "1099663917308973157";
@@ -457,7 +459,7 @@ public class BotConfig {
 
     /**
      * Single public origin for Discord log links (this machine's preferred port).
-     * Desktop → 8080, laptop → 8890. Other ports are still bound locally as fallbacks.
+     * Desktop → 8080, laptop → 8890, mini PC → 9090. Other ports stay bound locally.
      */
     public List<String> getModmailLogsPublicPrefixes() {
         String scheme = "http";
@@ -480,7 +482,7 @@ public class BotConfig {
     }
 
     /**
-     * One port for Discord links: this host's primary (desktop 8080, laptop 8890).
+     * One port for Discord links: desktop 8080, laptop 8890, mini PC 9090.
      */
     public int getModmailLogsPublicPort() {
         List<Integer> preferred = detectModmailLogsPorts();
@@ -507,7 +509,7 @@ public class BotConfig {
         return urls;
     }
 
-    /** e.g. {@code laptop (10.0.0.101 → 8890, 9090)} or {@code .env (no LAN match)}. */
+    /** e.g. {@code laptop (10.0.0.101 → 8890)} or {@code .env (no LAN match)}. */
     public String getModmailLogsHostDescription() {
         detectModmailLogsPorts();
         return modmailHostDescription != null ? modmailHostDescription : ".env (no LAN match)";
@@ -556,6 +558,7 @@ public class BotConfig {
             String kind = "10.0.0.101".equals(matchedIp) ? "laptop"
                     : "10.0.0.216".equals(matchedIp) ? "desktop"
                     : (hostname != null && hostname.equalsIgnoreCase("BCGAMINGPC")) ? "desktop"
+                    : (modmailDetectedPorts.size() == 1 && modmailDetectedPorts.get(0) == 9090) ? "mini-pc"
                     : "this-host";
             String who = matchedIp != null ? matchedIp : hostname;
             modmailHostDescription = kind + " (" + who + " → " + joinPorts(modmailDetectedPorts) + ")";
