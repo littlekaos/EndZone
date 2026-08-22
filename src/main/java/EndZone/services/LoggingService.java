@@ -27,6 +27,15 @@ public class LoggingService {
     private static final String STAFF_STRIKE_LOG_ID = BotConfig.STAFF_STRIKE_LOG_CHANNEL_ID;
 
     public void initializeLogChannels(Guild guild) {
+        if (isCourtZone(guild)) {
+            TextChannel courtLogs = getLogChannel(guild, "endzone-logs");
+            if (courtLogs == null) {
+                logger.warn("CourtZone server logs channel {} was not found", BotConfig.COURT_BOT_LOG_CHANNEL_ID);
+            } else {
+                logger.info("CourtZone server logs -> #{} ({})", courtLogs.getName(), courtLogs.getId());
+            }
+            return;
+        }
         getLogChannel(guild, "endzone-logs");
         getLogChannel(guild, "moderation-logs");
         getLogChannel(guild, "voice-logs");
@@ -37,12 +46,13 @@ public class LoggingService {
     }
 
     public TextChannel getLogChannel(Guild guild, String channelName) {
-        // Redirect ALL logging for the Ban Appeal guild to bot-logs channel
-        if (guild.getId().equals("1095553644943912980")) {
-            TextChannel logChannel = guild.getTextChannelById("1095768224055959582");
-            if (logChannel != null) {
-                return logChannel;
+        // All CourtZone logs go to #bot-logs
+        if (isCourtZone(guild)) {
+            TextChannel courtLogs = findChannel(guild, BotConfig.COURT_BOT_LOG_CHANNEL_ID);
+            if (courtLogs != null) {
+                return courtLogs;
             }
+            logger.warn("CourtZone log channel {} not found for {}", BotConfig.COURT_BOT_LOG_CHANNEL_ID, channelName);
         }
 
         String cacheKey = guild.getId() + ":" + channelName;
@@ -112,9 +122,8 @@ public class LoggingService {
             return logChannel;
         }
 
-        // Do not create channels in the Ban Appeal guild
-        if (guild.getId().equals("1095553644943912980")) {
-            logger.info("Log channel {} not found. Automatic creation is disabled for this guild.", channelName);
+        if (isCourtZone(guild)) {
+            logger.info("Log channel {} not found. Automatic creation is disabled for CourtZone.", channelName);
             return null;
         }
 
@@ -181,5 +190,24 @@ public class LoggingService {
                 logChannel.sendFiles(fileUpload).queue();
             });
         }
+    }
+
+    private static boolean isCourtZone(Guild guild) {
+        return guild != null && BotConfig.COURT_GUILD_ID.equals(guild.getId());
+    }
+
+    private TextChannel findChannel(Guild guild, String channelId) {
+        if (guild == null || channelId == null || channelId.isEmpty()) {
+            return null;
+        }
+        TextChannel channel = guild.getTextChannelById(channelId);
+        if (channel != null) {
+            return channel;
+        }
+        channel = guild.getJDA().getTextChannelById(channelId);
+        if (channel != null && channel.getGuild().getId().equals(guild.getId())) {
+            return channel;
+        }
+        return null;
     }
 }
