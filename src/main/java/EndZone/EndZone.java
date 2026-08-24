@@ -5,6 +5,7 @@ import EndZone.database.DatabaseService;
 import EndZone.embeds.EmbedInitializer;
 import EndZone.events.*;
 import EndZone.forms.EndZoneForm;
+import EndZone.listeners.BotMentionListener;
 import EndZone.listeners.EndZoneListener;
 import EndZone.listeners.StaffPingListener;
 import EndZone.schedulers.SchedulerManager;
@@ -83,6 +84,7 @@ public class EndZone {
         logger.info("[ModmailLogs] Listening on ports: {}", config.getModmailLogsPorts());
         logger.info("[ModmailLogs] Detected host: {}", config.getModmailLogsHostDescription());
         logger.info("[ModmailLogs] Public log link: {}", config.getModmailLogsBaseUrl());
+        ModmailHairpinFix.apply(config);
         if (config.getModmailLogsBaseUrl().contains("localhost")) {
             logger.warn("[ModmailLogs] Base URL is localhost — set MODMAIL_LOGS_BASE_URL so /logs links work publicly");
         }
@@ -128,6 +130,7 @@ public class EndZone {
                         new ServerLogEventListener(this),
                         new ReactionRoleListener(),
                         new StaffPingListener(),
+                        new BotMentionListener(),
                         ServiceManager.getRoleRestorationService()
                 )
                 .setActivity(activity)

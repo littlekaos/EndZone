@@ -852,6 +852,78 @@ public class ModmailService {
         }
     }
 
+    /**
+     * Insert a Ticket Tool (or other) transcript. Returns true if a new row was written,
+     * false if {@code logUuid} already exists or the insert failed.
+     */
+    public boolean insertImportedLog(String logUuid, String userId, String closedById, String closedByName,
+                                     String category, String transcript, long createdAt, long closedAt,
+                                     String discordUrl) {
+        if (logUuid == null || logUuid.isBlank() || userId == null || userId.isBlank()) {
+            return false;
+        }
+        String body = transcript != null && !transcript.isBlank() ? transcript : "(No messages in transcript)";
+        ModmailLog existing = findLogByUuid(logUuid);
+        if (existing != null) {
+            if (existing.getSessionId() != 0) {
+                return false;
+            }
+            String sql = """
+                    UPDATE ez_modmail_logs
+                    SET user_id = ?, closed_by_id = ?, closed_by_name = ?, category = ?, transcript = ?,
+                        created_at = ?, closed_at = ?, discord_url = ?
+                    WHERE log_uuid = ?
+                    """;
+            try (Connection conn = DatabaseService.getConnection();
+                 PreparedStatement ps = conn.prepareStatement(sql)) {
+                ps.setString(1, userId);
+                ps.setString(2, closedById);
+                ps.setString(3, closedByName);
+                ps.setString(4, category);
+                ps.setString(5, body);
+                ps.setLong(6, createdAt > 0 ? createdAt : closedAt);
+                ps.setLong(7, closedAt);
+                ps.setString(8, discordUrl);
+                ps.setString(9, logUuid);
+                return ps.executeUpdate() > 0;
+            } catch (Exception e) {
+                logger.error("[Modmail] Failed to refresh imported log {}: {}", logUuid, e.getMessage());
+                return false;
+            }
+        }
+        String sql = """
+                INSERT INTO ez_modmail_logs
+                (log_uuid, session_id, user_id, closed_by_id, closed_by_name, category, transcript, created_at, closed_at, discord_url)
+                VALUES (?, 0, ?, ?, ?, ?, ?, ?, ?, ?)
+                """;
+        try (Connection conn = DatabaseService.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, logUuid);
+            ps.setString(2, userId);
+            ps.setString(3, closedById);
+            ps.setString(4, closedByName);
+            ps.setString(5, category);
+            ps.setString(6, body);
+            ps.setLong(7, createdAt > 0 ? createdAt : closedAt);
+            ps.setLong(8, closedAt);
+            ps.setString(9, discordUrl);
+            return ps.executeUpdate() > 0;
+        } catch (Exception e) {
+            logger.error("[Modmail] Failed to import log {}: {}", logUuid, e.getMessage());
+            return false;
+        }
+    }
+
+    static boolean isWeakImportedTranscript(String transcript) {
+        if (transcript == null || transcript.isBlank()) {
+            return true;
+        }
+        String t = transcript.trim();
+        return t.startsWith("(Could not")
+                || t.startsWith("(No messages")
+                || t.length() < 60;
+    }
+
     private boolean saveLog(String logUuid, ModmailSession session, String closedById,
                             String closedByName, String transcript) {
         String sql = """

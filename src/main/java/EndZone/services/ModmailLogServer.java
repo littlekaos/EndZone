@@ -109,6 +109,18 @@ public class ModmailLogServer {
                 return;
             }
 
+            String transcript = log.getTranscript();
+            if (TicketToolTranscriptRenderer.isTicketToolPayload(transcript)) {
+                String page = TicketToolTranscriptRenderer.render(transcript);
+                if (page != null && !page.isBlank()) {
+                    send(exchange, 200, "text/html; charset=utf-8", page);
+                    return;
+                }
+            }
+            if (looksLikeHtmlDocument(transcript)) {
+                send(exchange, 200, "text/html; charset=utf-8", transcript);
+                return;
+            }
             send(exchange, 200, "text/html; charset=utf-8", renderLogHtml(log));
         } catch (Exception e) {
             logger.error("[ModmailLogs] Failed to serve log: {}", e.getMessage(), e);
@@ -117,6 +129,15 @@ public class ModmailLogServer {
             } catch (Exception ignored) {
             }
         }
+    }
+
+    private static boolean looksLikeHtmlDocument(String transcript) {
+        if (transcript == null || transcript.length() < 32) {
+            return false;
+        }
+        String head = transcript.substring(0, Math.min(400, transcript.length())).toLowerCase();
+        return head.contains("<html") || head.contains("<!doctype html")
+                || head.contains("chatlog__message") || head.contains("class=\"log\"");
     }
 
     private String renderLogHtml(ModmailLog log) {

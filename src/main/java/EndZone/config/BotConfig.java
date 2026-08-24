@@ -138,6 +138,10 @@ public class BotConfig {
     public static final String MODMAIL_INBOX_CHANNEL_ID = "1536202596505755728";
     /** CourtZone channel for modmail close logs with transcripts. */
     public static final String MODMAIL_LOG_CHANNEL_ID = "1095752922903621682";
+    /** Ticket Tool bot that posts closed-ticket transcripts in the log channel. */
+    public static final String TICKET_TOOL_BOT_ID = "557628352828014614";
+    /** Older / alternate Ticket Tool application id seen in some posts. */
+    public static final String TICKET_TOOL_BOT_ID_ALT = "557628353928036352";
     public static final int DEFAULT_MODMAIL_LOGS_PORT = 8890;
     /**
      * LAN IP / hostname → Discord log port: desktop 8080, laptop 8890, mini PC 9090.
@@ -196,6 +200,8 @@ public class BotConfig {
     public static final String MESSAGE_LOG_CHANNEL_ID = "1478568628537262283";
     /** CourtZone #bot-logs — every CourtZone log type is redirected here. */
     public static final String COURT_BOT_LOG_CHANNEL_ID = "1095768224055959582";
+    /** CourtZone channel for @here when the bot is mentioned in any server. */
+    public static final String BOT_MENTION_LOG_CHANNEL_ID = "1478516784616308886";
     public static final String STAFF_NOTIFICATION_CHANNEL_ID = "1478853936441200690";
     public static final String APPLICATION_CHANNEL_ID = "1478855549553479813";
     public static final String MANAGER_CHAT_CHANNEL_ID = "1099663917308973157";
@@ -458,8 +464,8 @@ public class BotConfig {
     }
 
     /**
-     * Single public origin for Discord log links (this machine's preferred port).
-     * Desktop → 8080, laptop → 8890, mini PC → 9090. Other ports stay bound locally.
+     * Single origin for Discord log links: {@code MODMAIL_LOGS_BASE_URL} host plus
+     * this machine's preferred port (desktop 8080, laptop 8890, mini PC 9090).
      */
     public List<String> getModmailLogsPublicPrefixes() {
         String scheme = "http";
@@ -515,8 +521,32 @@ public class BotConfig {
         return modmailHostDescription != null ? modmailHostDescription : ".env (no LAN match)";
     }
 
+    /** LAN IPv4 that matched {@code MODMAIL_LOGS_HOST_MAP}, or null. */
+    public String getModmailMatchedLanIp() {
+        detectModmailLogsPorts();
+        return modmailMatchedLanIp;
+    }
+
+    /** Hostname/IP Discord log links use ({@code MODMAIL_LOGS_BASE_URL}). */
+    public String getModmailLogsPublicHost() {
+        String configured = getEnvOrDefault("MODMAIL_LOGS_BASE_URL", "");
+        if (configured == null || configured.isBlank()) {
+            return "localhost";
+        }
+        try {
+            URI uri = URI.create(configured.replaceAll("/+$", ""));
+            if (uri.getHost() != null && !uri.getHost().isBlank()) {
+                return uri.getHost();
+            }
+        } catch (Exception ignored) {
+            // fall through
+        }
+        return "localhost";
+    }
+
     private List<Integer> modmailDetectedPorts;
     private String modmailHostDescription;
+    private String modmailMatchedLanIp;
     private boolean modmailHostResolved;
 
     private List<Integer> detectModmailLogsPorts() {
@@ -550,6 +580,7 @@ public class BotConfig {
                 addUniquePorts(modmailDetectedPorts, ports);
                 if (matchedIp == null) {
                     matchedIp = ip;
+                    modmailMatchedLanIp = ip;
                 }
             }
         }

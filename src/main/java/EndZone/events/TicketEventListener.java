@@ -2,6 +2,7 @@ package EndZone.events;
 
 import EndZone.EndZone;
 import EndZone.config.BotConfig;
+import EndZone.services.TicketToolLogImporter;
 import EndZone.util.UnbanAppealMessage;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.MessageEmbed;
@@ -16,6 +17,7 @@ import org.slf4j.LoggerFactory;
 public class TicketEventListener extends ListenerAdapter {
     private static final Logger logger = LoggerFactory.getLogger(TicketEventListener.class);
     private final EndZone bot;
+    private final TicketToolLogImporter ticketLogImporter = new TicketToolLogImporter();
 
     public TicketEventListener(EndZone bot) {
         this.bot = bot;
@@ -35,7 +37,14 @@ public class TicketEventListener extends ListenerAdapter {
         // Author check
         String authorId = message.getAuthor().getId();
         String authorName = message.getAuthor().getName();
-        if (!authorId.equals("557628353928036352") && !authorName.toLowerCase().contains("ticket tool")) return;
+        if (!authorId.equals(BotConfig.TICKET_TOOL_BOT_ID)
+                && !authorId.equals(BotConfig.TICKET_TOOL_BOT_ID_ALT)
+                && !authorName.toLowerCase().contains("ticket tool")) return;
+
+        if (TicketToolLogImporter.isLogChannel(message.getChannel().getId())) {
+            ticketLogImporter.importAsync(message);
+            return;
+        }
 
         // Ignore close confirmation messages
         String content = message.getContentRaw().toLowerCase();
